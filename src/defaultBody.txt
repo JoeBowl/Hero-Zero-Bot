@@ -1,0 +1,14 @@
+existing_session_id=
+existing_user_id=
+client_id=
+app_version=
+action=autoLoginUser
+user_id=0
+user_session_id=0
+client_version=
+build_number=
+auth=
+rct=
+keep_active=
+device_id=
+device_type=

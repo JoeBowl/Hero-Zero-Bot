@@ -1,0 +1,19 @@
+POST /request.php HTTP/2
+Host: 
+User-Agent: 
+Accept: 
+Accept-Language: 
+Accept-Encoding: 
+Content-Type: 
+Content-Length: 
+Origin: 
+Referer: 
+Cookie: 
+DNT: 
+Sec-Fetch-Dest: 
+Sec-Fetch-Mode: 
+Sec-Fetch-Site: 
+Sec-CH-UA: 
+Sec-CH-UA-Mobile: 
+Sec-CH-UA-Platform: 
+Priority: 
