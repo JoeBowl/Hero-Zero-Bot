@@ -72,6 +72,7 @@ def get_equipped_item(inventory, items, item_type):
         4: "belt_item_id",
         5: "boots_item_id",
         6: "weapon_item_id",
+        7: "gadget_item_id",
     }
 
     slot = slot_map.get(item_type)
@@ -93,10 +94,9 @@ def get_upgrade_value(item_id, inventory, items):
 
     reward_score = get_item_score(reward_item)
     equipped_score = get_item_score(equipped_item) if equipped_item else 0
-
     return reward_score - equipped_score
 
-def get_best_quest(autoLoginUser_filepath, weights, verbose=False):
+def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=False):
     with open(autoLoginUser_filepath, 'r') as file:
         data = json.load(file)
     
@@ -125,11 +125,11 @@ def get_best_quest(autoLoginUser_filepath, weights, verbose=False):
             duration = 1e-6
 
         score = 0
-        for key, value in rewards.items():
+        for key, value in rewards.items():            
             # Compute score for item upgrade
             if key == "item":
                 upgrade_value = get_upgrade_value(value, inventory, items)
-                score += upgrade_value * weights.get(("item", None), 0)
+                score += max(0, upgrade_value) * weights.get(("item", None), 0)
                 continue
             
             # Compute score for stackable rewards (xp, coins...)
@@ -146,7 +146,7 @@ def get_best_quest(autoLoginUser_filepath, weights, verbose=False):
                     score += weights[(key, None)]
 
             # Unknown -> wait for further inspection
-            else:
+            if (key, value) not in weights and (key, None) not in weights:
                 print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
                       f"{score:<15.2f} {rewards}")
                 time.sleep(10e4)
@@ -157,6 +157,12 @@ def get_best_quest(autoLoginUser_filepath, weights, verbose=False):
         if verbose:
             print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
                   f"{score:<15.2f} {rewards}")
+        
+        # Skip if not enough energy
+        if check_energy:
+            current_quest_energy = get_current_energy(autoLoginUser_filepath)
+            if quest["energy_cost"] > current_quest_energy:
+                continue
 
         if score > best_quest["score"]:
             best_quest = quest.copy()
@@ -194,7 +200,7 @@ def parse_request_with_body(request_txt, body_txt):
         "body": body
     }
 
-def start_quest(quest_id, request_file, body_file, verbose=False):
+def start_quest(quest_id, request_file, body_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -239,10 +245,13 @@ def start_quest(quest_id, request_file, body_file, verbose=False):
     else:
         print(f"Unable to start quest {best_quest["id"]}")
         print(response_json)
+    
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
-    return response
+    return response_json
 
-def check_for_quest_complete(request_file, body_file, verbise=False):
+def check_for_quest_complete(request_file, body_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -283,10 +292,13 @@ def check_for_quest_complete(request_file, body_file, verbise=False):
         print("Quest completed successfully verified")
     else:
         print("Unable to verify quest completion")
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
-    return response
+    return response_json
 
-def claim_quest_rewards(request_file, body_file, verbise=False):
+def claim_quest_rewards(request_file, body_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -329,8 +341,11 @@ def claim_quest_rewards(request_file, body_file, verbise=False):
         print("Quest reward successfully collected")
     else:
         print("Unable to collect quest reward")
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
-    return response
+    return response_json
 
 def log_response(action, response, log_file='quest_log.txt'):
     # Get the current timestamp
@@ -358,36 +373,64 @@ if __name__ == "__main__":
     REWARD_WEIGHTS = {
         # Standard resources
         ("xp", None): 1.0,
-        ("coins", None): 6.75,
+        ("coins", None): 1.0,
+        ("premium", None): 1e10,
 
         # Upgrade system
-        ("item", None): 1e4,
+        ("item", None): 2e3,
 
         # Event-specific rewards
         ("dungeon_key", None): 1e5,
+        ('herobook_item_epic', None): 1e5,
+        ("herobook_item_rare", None): 2e3,
+        ("herobook_item_common", None): 2e3,
+        ('story_dungeon_item', 'storydungeon1_4_laundry'): 2e3,
         ("event_item", "server_launch_blooming_nature_lotus"): 0,
-        ("slotmachine_jetons", None): 1e4,
+        ("slotmachine_jetons", None): 1e3,
+        ("event_item", 'easter_eggs'): 2e3,
+        ("event_item", 'easter_bunnies'): 2e3,
     }
 
-    for i in range(1):
+    for i in range(15):
         request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
 
         current_quest_energy = get_current_energy(autoLoginUser_filepath)
         print("quest_energy:", current_quest_energy)
 
-        best_quest = get_best_quest(autoLoginUser_filepath, REWARD_WEIGHTS, verbose=True)
+        best_quest = get_best_quest(autoLoginUser_filepath, REWARD_WEIGHTS, check_energy=False, verbose=True)
         best_quest_id = str(best_quest["id"])
         print("Best quest:", best_quest["id"], best_quest["duration"]/60, best_quest["rewards"])
-        break
+        
+        # Check if best_quest is valid
+        if not best_quest or best_quest["id"] is None:
+            print("No valid quest found. Breaking loop.")
+            break
+        elif best_quest["energy_cost"] > current_quest_energy:
+            print(f"Not enough energy for quest {best_quest['id']}. Required: {best_quest['energy_cost']}, Available: {current_quest_energy}. Breaking loop.")
+            break
+        # break
 
-        response = start_quest(best_quest_id, defaultHeaders_filepath, defaultBody_filepath)
-        log_response("startQuest", response, log_filepath)
-
-        print(f"Waiting {best_quest['duration'] / 60} min")
+        # Start a quest
+        response = start_quest(best_quest_id, defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
+        
+        wait_time = best_quest['duration'] + COOLDOWN
+        finish_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
+        print(f"Waiting {wait_time / 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
         time.sleep(best_quest['duration'] + COOLDOWN)
 
-        response = check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath)
-        log_response("checkForQuestComplete", response, log_filepath)
+        # Check if quest is finished
+        # If quest isn't finished yet, try again. If quest isn't finished after 5 tries, break
+        start_time = time.time()
+        while time.time() - start_time < COOLDOWN*10:
+            response = check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
+            
+            if not response['error']:  # handles None or ""
+                break
+            elif response['error'] == "errFinishNotYetCompleted":
+                time.sleep(COOLDOWN*2)
+            else: 
+                print(f"Unexpected error: {response['error']}")
+                break
 
-        response = claim_quest_rewards(defaultHeaders_filepath, defaultBody_filepath)
-        log_response("claimQuestRewards", response, log_filepath)
+        # Claim quest rewards
+        response = claim_quest_rewards(defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
