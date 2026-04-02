@@ -1,16 +1,15 @@
-# Hero-Zero-Bot (1.0)
+# Hero-Zero-Bot (2.0)
 ## A multi-functional bot that allows you to automate your hero's progression.
 
-![alt text](https://ragezone.com/wp-content/uploads/2017/01/maxresdefault-2.jpg)
+Based on the bot made by Ali-smh. https://github.com/Ali-smh/Hero-Zero-Bot
 
-The current version only allows you to automate xp by choosing the quest with the best xp/energy ratio.
+The current version allows you to automate quests by choosing the quest with best rewards (xp/coins/items) 
 
-Don't forget to change the following parameters in the bot.py file:
-- URL (the request url)
-- origin (in DEFAULT_HEADERS)
-- referer (in DEFAULT_HEADERS)
-- user_id (in DEFAULT_BODY)
-- user_session_id (in DEFAULT_BODY. Changes at each login)
-- auth (in DEFAULT_BODY. Changes at each refresh of the page but no need to change it)
+To use this bot, don't forget to change the following files:
+- defaultHeaders.txt
+- defaultBody.txt
 
-PS: To claim the total of quest rewards don't forget to refresh the page
+The default headers and default body are taken from the request "request.php" with action "autoLoginUser". You can see it by pressing F12 on your browser.
+
+<img width="1103" height="439" alt="Screenshot_2026-04-02_14-32-17" src="https://github.com/user-attachments/assets/4a45cf50-5b2c-49d1-8b02-f50cbf46d6d0" />
+<img width="750" height="378" alt="Screenshot_2026-04-02_14-44-40" src="https://github.com/user-attachments/assets/71d6274d-6f80-461f-b5ef-98782a456efe" />
