@@ -1,7 +1,7 @@
 import urllib
 import requests
-from src.auth import generate_auth
 import datetime
+import hashlib
 import json
 import time
 
@@ -42,13 +42,25 @@ def request_user_info(request_file, body_file, login_user_json_path, verbose=Fal
         # Save the JSON response
         with open(login_user_json_path, "w") as json_file:
             json.dump(data, json_file, indent=4)
-            print("Response saved to autoLoginUser.json")
+            print(f"Response saved to {login_user_json_path}")
     except ValueError:
         print("Response is not in JSON format.")
         
         # Save raw text with .txt suffix
         with open(login_user_json_path + ".txt", "w") as txt_file:
             txt_file.write(response.text)
+
+def generate_auth(action, user_id):
+    # The salt string
+    salt = "GN1al351"
+    
+    # Combine action, salt, and user_id
+    combined_string = action + salt + str(user_id)
+    
+    # Generate the MD5 hash of the combined string
+    auth = hashlib.md5(combined_string.encode('utf-8')).hexdigest()
+    
+    return auth
 
 def get_current_energy(autoLoginUser_path):
     with open(autoLoginUser_path, 'r') as file:
@@ -147,9 +159,11 @@ def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=F
 
             # Unknown -> wait for further inspection
             if (key, value) not in weights and (key, None) not in weights:
-                print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
-                      f"{score:<15.2f} {rewards}")
-                time.sleep(10e4)
+                raise RuntimeError(
+                    f"{quest_id:<8} {duration:<8.0f} {rewards.get('coins', 0):<8} "
+                    f"{rewards.get('xp', 0):<8} {score:<15.2f} {rewards}\n"
+                    f"Reward weight not defined for key={key}, value={value}"
+                )
 
         # Weighted score
         score = score / duration
@@ -200,7 +214,7 @@ def parse_request_with_body(request_txt, body_txt):
         "body": body
     }
 
-def start_quest(quest_id, request_file, body_file, log_filepath=None, verbose=False):
+def start_quest(quest_id, request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -242,6 +256,12 @@ def start_quest(quest_id, request_file, body_file, log_filepath=None, verbose=Fa
         print(f"Quest {best_quest["id"]} launched successfully. "
               f"XP: {best_quest['rewards']}, "
               f"Energy: {best_quest['duration']/60}")
+        
+        with open(autoLoginUser_filepath, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_filepath, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print(f"Unable to start quest {best_quest["id"]}")
         print(response_json)
@@ -290,6 +310,12 @@ def check_for_quest_complete(request_file, body_file, log_filepath=None, verbose
     response_json = response.json()
     if response_json["error"] == "":
         print("Quest completed successfully verified")
+
+        with open(autoLoginUser_filepath, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_filepath, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to verify quest completion")
         
@@ -339,6 +365,12 @@ def claim_quest_rewards(request_file, body_file, log_filepath=None, verbose=Fals
     response_json = response.json()
     if response_json["error"] == "":
         print("Quest reward successfully collected")
+
+        with open(autoLoginUser_filepath, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_filepath, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to collect quest reward")
         
@@ -346,6 +378,12 @@ def claim_quest_rewards(request_file, body_file, log_filepath=None, verbose=Fals
         log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     return response_json
+
+def get_active_quest_id(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
+
+    return data["data"]["character"]["active_quest_id"]
 
 def log_response(action, response, log_file='quest_log.txt'):
     # Get the current timestamp
@@ -363,74 +401,20 @@ def log_response(action, response, log_file='quest_log.txt'):
     with open(log_file, 'a') as log:
         log.write(json.dumps(log_entry) + '\n')
 
-if __name__ == "__main__":
-    defaultHeaders_filepath = "src/defaultHeaders.txt"
-    defaultBody_filepath = "src/defaultBody.txt"
-    autoLoginUser_filepath = "src/autoLoginUser.json"
-    log_filepath = "src/log.txt"
-    COOLDOWN = 5
+def merge_json(json1, json2):
+    # If both are dicts → merge recursively
+    if isinstance(json1, dict) and isinstance(json2, dict):
+        for key, value in json2.items():
+            if key in json1:
+                json1[key] = merge_json(json1[key], value)
+            else:
+                json1[key] = value
+        return json1
 
-    REWARD_WEIGHTS = {
-        # Standard resources
-        ("xp", None): 1.0,
-        ("coins", None): 1.0,
-        ("premium", None): 1e10,
+    # If both are lists → just overwrite
+    elif isinstance(json2, list):
+        return json2
 
-        # Upgrade system
-        ("item", None): 2e3,
-
-        # Event-specific rewards
-        ("dungeon_key", None): 1e5,
-        ('herobook_item_epic', None): 1e5,
-        ("herobook_item_rare", None): 2e3,
-        ("herobook_item_common", None): 2e3,
-        ('story_dungeon_item', 'storydungeon1_4_laundry'): 2e3,
-        ("event_item", "server_launch_blooming_nature_lotus"): 0,
-        ("slotmachine_jetons", None): 1e3,
-        ("event_item", 'easter_eggs'): 2e3,
-        ("event_item", 'easter_bunnies'): 2e3,
-    }
-
-    for i in range(15):
-        request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
-
-        current_quest_energy = get_current_energy(autoLoginUser_filepath)
-        print("quest_energy:", current_quest_energy)
-
-        best_quest = get_best_quest(autoLoginUser_filepath, REWARD_WEIGHTS, check_energy=False, verbose=True)
-        best_quest_id = str(best_quest["id"])
-        print("Best quest:", best_quest["id"], best_quest["duration"]/60, best_quest["rewards"])
-        
-        # Check if best_quest is valid
-        if not best_quest or best_quest["id"] is None:
-            print("No valid quest found. Breaking loop.")
-            break
-        elif best_quest["energy_cost"] > current_quest_energy:
-            print(f"Not enough energy for quest {best_quest['id']}. Required: {best_quest['energy_cost']}, Available: {current_quest_energy}. Breaking loop.")
-            break
-        # break
-
-        # Start a quest
-        response = start_quest(best_quest_id, defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
-        
-        wait_time = best_quest['duration'] + COOLDOWN
-        finish_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
-        print(f"Waiting {wait_time / 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
-        time.sleep(best_quest['duration'] + COOLDOWN)
-
-        # Check if quest is finished
-        # If quest isn't finished yet, try again. If quest isn't finished after 5 tries, break
-        start_time = time.time()
-        while time.time() - start_time < COOLDOWN*10:
-            response = check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
-            
-            if not response['error']:  # handles None or ""
-                break
-            elif response['error'] == "errFinishNotYetCompleted":
-                time.sleep(COOLDOWN*2)
-            else: 
-                print(f"Unexpected error: {response['error']}")
-                break
-
-        # Claim quest rewards
-        response = claim_quest_rewards(defaultHeaders_filepath, defaultBody_filepath, log_filepath=log_filepath)
+    # Otherwise → overwrite value
+    else:
+        return json2

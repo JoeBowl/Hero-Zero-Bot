@@ -1,189 +1,130 @@
 import time
 import json
 
+def get_paths(d, prefix=""):
+    paths = set()
 
-def get_item_score(item):
-    return (
-        item.get("stat_stamina", 0) +
-        item.get("stat_strength", 0) +
-        item.get("stat_critical_rating", 0) +
-        item.get("stat_dodge_rating", 0)
-    )
+    if isinstance(d, dict):
+        for k, v in d.items():
+            new_prefix = f"{prefix}.{k}" if prefix else k
+            paths.add(new_prefix)
+            paths.update(get_paths(v, new_prefix))
 
-def get_equipped_item(inventory, items, item_type):
-    slot_map = {
-        1: "mask_item_id",
-        2: "cape_item_id",
-        3: "suit_item_id",
-        4: "belt_item_id",
-        5: "boots_item_id",
-        6: "weapon_item_id",
-    }
+    elif isinstance(d, list):
+        for i, item in enumerate(d):
+            new_prefix = f"{prefix}[{i}]"
+            paths.add(new_prefix)
+            paths.update(get_paths(item, new_prefix))
 
-    slot = slot_map.get(item_type)
-    if not slot:
-        return None
+    return paths
 
-    equipped_id = inventory.get(slot, 0)
-    if equipped_id == 0:
-        return None
-
-    return next((i for i in items if i["id"] == equipped_id), None)
-
-def get_upgrade_value(item_id, inventory, items):
-    reward_item = next((i for i in items if i["id"] == item_id), None)
-    if not reward_item:
-        return 0
-
-    equipped_item = get_equipped_item(inventory, items, reward_item["type"])
-
-    reward_score = get_item_score(reward_item)
-    equipped_score = get_item_score(equipped_item) if equipped_item else 0
-
-    return reward_score - equipped_score
-
-def get_best_quest(autoLoginUser_filepath, verbose=False,
-                   XP_WEIGHT = 1.0,
-                   COIN_WEIGHT = 0.5,
-                   UPGRADE_WEIGHT = 10e4):
-    
-    with open(autoLoginUser_filepath, 'r') as file:
-        data = json.load(file)
-    
-    inventory = data["data"]["inventory"]
-    items = data["data"]["items"]
-
-    best_quest = {
-        "id": None,
-        "duration": 0,
-        "rewards": "{\"coins\":0,\"xp\":0}",
-        "item_upgrade": 0,
-        "score": 0
-    }
-
-    if verbose:
-        print(f"{'ID':<8} {'Dur(s)':<8} {'Coins':<8} {'XP':<8} "
-              f"{'Upgrade':<10} {'Score':<15} {'Rewards':<15}")
-        print("-" * 85)
-
-    # Loop through each quest in the JSON data
-    for quest in data["data"]["quests"]:
-        quest_id = quest["id"]
-        duration = quest["duration"]
-        rewards = json.loads(quest["rewards"])
-
-        coins = rewards["coins"]
-        xp = rewards["xp"]
-        item_id = rewards.get("item")
-
-        if item_id:
-            upgrade_value = get_upgrade_value(item_id, inventory, items)
-        else:
-            upgrade_value = 0
-
-        # Avoid division by zero
-        if duration == 0:
-            duration = 1e-6
-
-        # Weighted score
-        score = (
-            xp * XP_WEIGHT +
-            coins * COIN_WEIGHT +
-            upgrade_value * UPGRADE_WEIGHT
-        ) / duration
-
-        if verbose:
-            print(f"{quest_id:<8} {duration:<8.0f} {coins:<8} {xp:<8} "
-                  f"{upgrade_value:<10.0f} {score:<15.2f} {rewards}")
-            
-        for i in rewards:
-            if i != "coins" and i != "xp" and rewards[i] != "server_launch_blooming_nature_lotus":
-                time.sleep(10e4)
-
-        if score > best_quest["score"]:
-            best_quest = quest.copy()
-            best_quest["score"] = score
-
-    return best_quest
-
-def get_best_quest2(autoLoginUser_filepath, weights, verbose=False):
-    with open(autoLoginUser_filepath, 'r') as file:
-        data = json.load(file)
-    
-    inventory = data["data"]["inventory"]
-    items = data["data"]["items"]
-
-    best_quest = {
-        "id": None,
-        "duration": 0,
-        "rewards": "{\"coins\":0,\"xp\":0}",
-        "score": 0
-    }
-
-    if verbose:
-        print(f"{'ID':<8} {'Dur(s)':<8} {'Coins':<8} {'XP':<8} "
-              f"{'Score':<15} {'Rewards':<15}")
-        print("-" * 85)
-
-    # Loop through each quest in the JSON data
-    for quest in data["data"]["quests"]:
-        quest_id = quest["id"]
-        duration = quest["duration"]
-        rewards = json.loads(quest["rewards"])
-
-        if duration == 0:
-            duration = 1e-6
-
-        score = 0
-        for key, value in rewards.items():
-            # Compute score for item upgrade
-            if key == "item":
-                upgrade_value = get_upgrade_value(value, inventory, items)
-                score += upgrade_value * weights.get(("item", None), 0)
-                continue
-            
-            # Compute score for stackable rewards (xp, coins...)
-            if isinstance(value, (int, float)) or str(value).isdigit():
-                value = int(value)
-                weight_key = (key, None)
-                score += value * weights.get(weight_key, 0)
-
-            # Compute score for non-stackable rewards
-            elif isinstance(value, str):
-                weight_key = (key, value)
-                score += weights.get(weight_key, 0)
-
-            # Unknown -> wait for further inspection
+def merge_json(json1, json2):
+    # If both are dicts → merge recursively
+    if isinstance(json1, dict) and isinstance(json2, dict):
+        for key, value in json2.items():
+            if key in json1:
+                json1[key] = merge_json(json1[key], value)
             else:
-                print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
-                      f"{score:<15.2f} {rewards}")
-                time.sleep(10e4)
+                json1[key] = value
+        return json1
 
-        # Weighted score
-        score = score / duration
+    # If both are lists → overwrite by index (like your compare logic)
+    elif isinstance(json1, list) and isinstance(json2, list):
+        for i, item in enumerate(json2):
+            if i < len(json1):
+                json1[i] = merge_json(json1[i], item)
+            else:
+                json1.append(item)
+        return json1
 
-        if verbose:
-            print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
-                  f"{score:<15.2f} {rewards}")
+    # Otherwise → overwrite value
+    else:
+        return json2
 
-        if score > best_quest["score"]:
-            best_quest = quest.copy()
-            best_quest["score"] = score
+def compare_keys(json1, json2):
+    paths1 = get_paths(json1)
+    paths2 = get_paths(json2)
 
-    return best_quest
+    missing = paths2 - paths1
+    return missing
 
-REWARD_WEIGHTS = {
-    # Standard resources
-    ("xp", None): 1.0,
-    ("coins", None): 1.0,
+def sort_key(x):
+    """Create a comparable key for any JSON-like object"""
+    if isinstance(x, dict):
+        return tuple(sorted((k, sort_key(v)) for k, v in x.items()))
 
-    # Upgrade system
-    ("item", None): 1e5,
+    elif isinstance(x, list):
+        return tuple(sorted(sort_key(i) for i in x))
 
-    # Event-specific rewards
-    ("event_item", "server_launch_blooming_nature_lotus"): 0,
-    ("slotmachine_jetons", None): 1e4,
-}
+    else:
+        return x
+    
+def compare_values(json1, json2, path=""):
+    diffs = []
 
-autoLoginUser_filepath = "src/autoLoginUser.json"
-get_best_quest2(autoLoginUser_filepath, REWARD_WEIGHTS, verbose=True)
+    if isinstance(json2, dict):
+        for key in json2:
+            new_path = f"{path}.{key}" if path else key
+
+            if key in json1:
+                diffs.extend(compare_values(json1[key], json2[key], new_path))
+            else:
+                # Shouldn't happen if you already validated keys
+                diffs.append((new_path, None, json2[key]))
+
+    elif isinstance(json2, list):
+        sorted1 = sorted(json1, key=sort_key)
+        sorted2 = sorted(json2, key=sort_key)
+
+        for i, item in enumerate(sorted2):
+            new_path = f"{path}[{i}]"
+
+            if i < len(sorted1):
+                diffs.extend(compare_values(sorted1[i], item, new_path))
+            else:
+                diffs.append((new_path, None, item))
+
+        # detect removed items
+        for i in range(len(sorted2), len(sorted1)):
+            diffs.append((f"{path}[{i}]", sorted1[i], None))
+
+    else:
+        # Compare actual values
+        if json1 != json2:
+            diffs.append((path, json1, json2))
+
+    return diffs
+
+# Function to read and load JSON data from files
+def load_json(file_path):
+    with open(file_path, "r") as f:
+        return json.load(f)
+
+# Load JSON files
+first_json = load_json("src/merged.json")
+second_json = load_json("src/autoLoginUser2.json")
+
+# Compare keys
+missing_keys = compare_keys(first_json, second_json)
+
+if not missing_keys:
+    print("All keys from second JSON exist in first JSON ✅")
+else:
+    print("Missing keys:")
+    for k in sorted(missing_keys):
+        print(k)
+
+# Compare values
+differences = compare_values(first_json, second_json)
+
+if not differences:
+    print("No value differences 🎯")
+else:
+    print("Differences found:")
+    for path, v1, v2 in differences:
+        print(f"{path}: {v1} → {v2}")
+
+# merged = merge_json(first_json, second_json)
+
+# with open("src/merged.json", "w") as f:
+#     json.dump(merged, f, indent=2)
