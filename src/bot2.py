@@ -489,6 +489,58 @@ def get_energy_refill_cost(level, energy_refilled_today, const):
     base = game_currency_per_time(level, const)
     return round(const["cost_factors"][tier] * base)
 
+def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = {}
+    DEFAULT_BODY["action"] = "claimFreeTreasureRevealItems"
+    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
+    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
+    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+    DEFAULT_BODY["rct"] = "2"
+    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
+    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
+    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+
+    response_json = response.json()
+    if response_json["error"] == "":
+        print("Free treasure reveal items claimed successfully")
+
+        with open(autoLoginUser_filepath, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_filepath, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
+    else:
+        print("Unable to claim free treasure reveal items")
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
+
+    return response_json
+
 def log_response(action, response, log_file='quest_log.txt'):
     # Get the current timestamp
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
