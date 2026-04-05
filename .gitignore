@@ -2,3 +2,6 @@ __pycache__/
 myenv/
 src/defaultBody2.txt
 src/defaultHeaders2.txt
+src/autoLoginUser2.json
+constants_json.data
+constants.json

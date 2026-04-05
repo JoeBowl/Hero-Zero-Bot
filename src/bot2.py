@@ -3,7 +3,6 @@ import requests
 import datetime
 import hashlib
 import json
-import time
 
 def request_user_info(request_file, body_file, login_user_json_path, verbose=False):
     with open(request_file, 'r') as f:
@@ -68,45 +67,29 @@ def get_current_energy(autoLoginUser_path):
 
     return data["data"]["character"]["quest_energy"]
 
-def get_item_score(item):
-    return (
-        item.get("stat_stamina", 0) +
-        item.get("stat_strength", 0) +
-        item.get("stat_critical_rating", 0) +
-        item.get("stat_dodge_rating", 0)
-    )
+def get_active_quest_id(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
 
-def get_equipped_item(inventory, items, item_type):
-    slot_map = {
-        1: "mask_item_id",
-        2: "cape_item_id",
-        3: "suit_item_id",
-        4: "belt_item_id",
-        5: "boots_item_id",
-        6: "weapon_item_id",
-        7: "gadget_item_id",
-    }
+    return data["data"]["character"]["active_quest_id"]
 
-    slot = slot_map.get(item_type)
-    if not slot:
-        return None
+def get_quest_energy_refilled_today(autoLoginUser_path): 
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
 
-    equipped_id = inventory.get(slot, 0)
-    if equipped_id == 0:
-        return None
+    return data["data"]["character"]["quest_energy_refill_amount_today"]
 
-    return next((i for i in items if i["id"] == equipped_id), None)
+def get_game_currency(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
 
-def get_upgrade_value(item_id, inventory, items):
-    reward_item = next((i for i in items if i["id"] == item_id), None)
-    if not reward_item:
-        return 0
+    return data["data"]["character"]["game_currency"]
 
-    equipped_item = get_equipped_item(inventory, items, reward_item["type"])
+def get_player_level(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
 
-    reward_score = get_item_score(reward_item)
-    equipped_score = get_item_score(equipped_item) if equipped_item else 0
-    return reward_score - equipped_score
+    return data["data"]["character"]["level"]
 
 def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=False):
     with open(autoLoginUser_filepath, 'r') as file:
@@ -184,6 +167,46 @@ def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=F
 
     return best_quest
 
+def get_item_score(item):
+    return (
+        item.get("stat_stamina", 0) +
+        item.get("stat_strength", 0) +
+        item.get("stat_critical_rating", 0) +
+        item.get("stat_dodge_rating", 0)
+    )
+
+def get_equipped_item(inventory, items, item_type):
+    slot_map = {
+        1: "mask_item_id",
+        2: "cape_item_id",
+        3: "suit_item_id",
+        4: "belt_item_id",
+        5: "boots_item_id",
+        6: "weapon_item_id",
+        7: "gadget_item_id",
+    }
+
+    slot = slot_map.get(item_type)
+    if not slot:
+        return None
+
+    equipped_id = inventory.get(slot, 0)
+    if equipped_id == 0:
+        return None
+
+    return next((i for i in items if i["id"] == equipped_id), None)
+
+def get_upgrade_value(item_id, inventory, items):
+    reward_item = next((i for i in items if i["id"] == item_id), None)
+    if not reward_item:
+        return 0
+
+    equipped_item = get_equipped_item(inventory, items, reward_item["type"])
+
+    reward_score = get_item_score(reward_item)
+    equipped_score = get_item_score(equipped_item) if equipped_item else 0
+    return reward_score - equipped_score
+
 def parse_request_with_body(request_txt, body_txt):
     # Parsing the request headers (same as before)
     lines = request_txt.strip().splitlines()
@@ -214,7 +237,7 @@ def parse_request_with_body(request_txt, body_txt):
         "body": body
     }
 
-def start_quest(quest_id, request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def start_quest(best_quest, request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -231,7 +254,7 @@ def start_quest(quest_id, request_file, body_file, autoLoginUser_filepath, log_f
 
     # Get the body
     DEFAULT_BODY = {}
-    DEFAULT_BODY["quest_id"] = str(quest_id)
+    DEFAULT_BODY["quest_id"] = str(best_quest['id'])
     DEFAULT_BODY["action"] = "startQuest"
     DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
     DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
@@ -253,7 +276,7 @@ def start_quest(quest_id, request_file, body_file, autoLoginUser_filepath, log_f
 
     response_json = response.json()
     if response_json["error"] == "":
-        print(f"Quest {best_quest["id"]} launched successfully. "
+        print(f"Quest {best_quest['id']} launched successfully. "
               f"XP: {best_quest['rewards']}, "
               f"Energy: {best_quest['duration']/60}")
         
@@ -271,7 +294,7 @@ def start_quest(quest_id, request_file, body_file, autoLoginUser_filepath, log_f
 
     return response_json
 
-def check_for_quest_complete(request_file, body_file, log_filepath=None, verbose=False):
+def check_for_quest_complete(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -324,7 +347,7 @@ def check_for_quest_complete(request_file, body_file, log_filepath=None, verbose
 
     return response_json
 
-def claim_quest_rewards(request_file, body_file, log_filepath=None, verbose=False):
+def claim_quest_rewards(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -379,11 +402,92 @@ def claim_quest_rewards(request_file, body_file, log_filepath=None, verbose=Fals
 
     return response_json
 
-def get_active_quest_id(autoLoginUser_path):
-    with open(autoLoginUser_path, 'r') as file:
-        data = json.load(file)
+def buy_quest_energy(request_file, body_file, autoLoginUser_filepath, CONSTANTS, log_filepath=None, verbose=False):
+    player_level = get_player_level(autoLoginUser_filepath)
+    energy_refilled_today = get_quest_energy_refilled_today(autoLoginUser_filepath)
+    game_currency = get_game_currency(autoLoginUser_filepath)
+    energy_refill_cost = get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS)
+    print(
+        f"Trying to buy energy!\n"
+        f"Player level: {player_level} | Energy refilled today: {energy_refilled_today} | Game currency: {game_currency} | Refill cost: {energy_refill_cost}"
+    )
+    
+    if energy_refilled_today >= CONSTANTS["quest_max_refill_amount_per_day"]:
+        raise RuntimeError("Energy refill limit reached!")
+    
+    if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
+        raise RuntimeError("Not enough currency to refill energy!")
+        
+    current_quest_energy = get_current_energy(autoLoginUser_filepath)
+    print("quest_energy:", current_quest_energy)
+        
+    response = buy_quest_energy_request(request_file, body_file, autoLoginUser_filepath, log_filepath, verbose)
+    
+    return response
 
-    return data["data"]["character"]["active_quest_id"]
+def buy_quest_energy_request(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = {}
+    DEFAULT_BODY["use_premium"] = "false"
+    DEFAULT_BODY["action"] = "buyQuestEnergy"
+    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
+    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
+    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+    DEFAULT_BODY["rct"] = "2"
+    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
+    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
+    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+
+    response_json = response.json()
+    if response_json["error"] == "":
+        print("Quest energy purchased successfully")
+    
+        with open(autoLoginUser_filepath, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_filepath, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
+    else:
+        print("Unable to purchase quest energy")
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
+
+    return response_json
+
+def game_currency_per_time(level, const):
+    c = const["coins_per_time"]
+    return round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
+
+def get_energy_refill_cost(level, energy_refilled_today, const):
+    tier = energy_refilled_today // const["energy_per_refill"]
+    tier = min(tier, len(const["cost_factors"]) - 1)
+
+    base = game_currency_per_time(level, const)
+    return round(const["cost_factors"][tier] * base)
 
 def log_response(action, response, log_file='quest_log.txt'):
     # Get the current timestamp
@@ -401,17 +505,25 @@ def log_response(action, response, log_file='quest_log.txt'):
     with open(log_file, 'a') as log:
         log.write(json.dumps(log_entry) + '\n')
 
-def merge_json(json1, json2):
+def merge_json(json1, json2, path=None):
+    if path is None:
+        path = []
+
     # If both are dicts → merge recursively
     if isinstance(json1, dict) and isinstance(json2, dict):
         for key, value in json2.items():
             if key in json1:
-                json1[key] = merge_json(json1[key], value)
+                json1[key] = merge_json(json1[key], value, path + [key])
             else:
                 json1[key] = value
         return json1
 
-    # If both are lists → just overwrite
+    # Special case: path == ["data", "items"] → append lists (no duplicates by id)
+    elif path == ["data", "items"] and isinstance(json1, list) and isinstance(json2, list):
+        existing_ids = {item["id"] for item in json1}
+        return json1 + [item for item in json2 if item["id"] not in existing_ids]
+
+    # If both are lists → overwrite
     elif isinstance(json2, list):
         return json2
 
