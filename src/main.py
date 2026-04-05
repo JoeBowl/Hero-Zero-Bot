@@ -1,10 +1,10 @@
-from src.bot2 import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
+from bot2 import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
 import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = "src/defaultHeaders.txt"
-    defaultBody_filepath = "src/defaultBody.txt"
+    defaultHeaders_filepath = "src/defaultHeaders2.txt"
+    defaultBody_filepath = "src/defaultBody2.txt"
     autoLoginUser_filepath = "src/autoLoginUser2.json"
     log_filepath = "src/log.txt"
     COOLDOWN = 5
@@ -86,20 +86,8 @@ if __name__ == "__main__":
             print(f"Waiting {wait_time / 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
             time.sleep(best_quest['duration'] + COOLDOWN)
 
-        # Check if quest is finished
-        # If quest isn't finished yet, try again. If quest isn't finished after 5 tries, break
-        start_time = time.time()
-        while time.time() - start_time < 5*60:
-            response = check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath)
-            
-            if not response['error']:  # handles None or ""
-                break
-            elif response['error'] == "errFinishNotYetCompleted":
-                time.sleep(60)
-            else:
-                raise RuntimeError(f"Unexpected error: {response['error']}")
-                
-            time.sleep(60)
-
+        # Check of quest completion
+        check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=60, log_filepath=log_filepath)
+        
         # Claim quest rewards
         response = claim_quest_rewards(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath)

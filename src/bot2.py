@@ -3,8 +3,9 @@ import requests
 import datetime
 import hashlib
 import json
+import time
 
-def request_user_info(request_file, body_file, login_user_json_path, verbose=False):
+def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -36,18 +37,21 @@ def request_user_info(request_file, body_file, login_user_json_path, verbose=Fal
 
     # Export the response
     try:
-        data = response.json()  # Parse JSON response
+        response_json = response.json()  # Parse JSON response
         
-        # Save the JSON response
-        with open(login_user_json_path, "w") as json_file:
-            json.dump(data, json_file, indent=4)
-            print(f"Response saved to {login_user_json_path}")
+        if not response_json['error']:
+            # Save the JSON response
+            with open(autoLoginUser_file, "w") as json_file:
+                json.dump(response_json, json_file, indent=4)
+                print(f"Response saved to {autoLoginUser_file}")
+        else:
+            raise RuntimeError(f"Response error|request_user_info: {response_json['error']}")
     except ValueError:
-        print("Response is not in JSON format.")
-        
         # Save raw text with .txt suffix
-        with open(login_user_json_path + ".txt", "w") as txt_file:
+        with open(autoLoginUser_file + ".txt", "w") as txt_file:
             txt_file.write(response.text)
+
+        raise RuntimeError(f"Response error|request_user_info: Response is not in JSON format.")
 
 def generate_auth(action, user_id):
     # The salt string
@@ -61,38 +65,38 @@ def generate_auth(action, user_id):
     
     return auth
 
-def get_current_energy(autoLoginUser_path):
-    with open(autoLoginUser_path, 'r') as file:
+def get_current_energy(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["quest_energy"]
 
-def get_active_quest_id(autoLoginUser_path):
-    with open(autoLoginUser_path, 'r') as file:
+def get_active_quest_id(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["active_quest_id"]
 
-def get_quest_energy_refilled_today(autoLoginUser_path): 
-    with open(autoLoginUser_path, 'r') as file:
+def get_quest_energy_refilled_today(autoLoginUser_file): 
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["quest_energy_refill_amount_today"]
 
-def get_game_currency(autoLoginUser_path):
-    with open(autoLoginUser_path, 'r') as file:
+def get_game_currency(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["game_currency"]
 
-def get_player_level(autoLoginUser_path):
-    with open(autoLoginUser_path, 'r') as file:
+def get_player_level(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["level"]
 
-def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=False):
-    with open(autoLoginUser_filepath, 'r') as file:
+def get_best_quest(autoLoginUser_file, weights, check_energy=True, verbose=False):
+    with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
     
     inventory = data["data"]["inventory"]
@@ -157,7 +161,7 @@ def get_best_quest(autoLoginUser_filepath, weights, check_energy=True, verbose=F
         
         # Skip if not enough energy
         if check_energy:
-            current_quest_energy = get_current_energy(autoLoginUser_filepath)
+            current_quest_energy = get_current_energy(autoLoginUser_file)
             if quest["energy_cost"] > current_quest_energy:
                 continue
 
@@ -237,7 +241,7 @@ def parse_request_with_body(request_txt, body_txt):
         "body": body
     }
 
-def start_quest(best_quest, request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -280,10 +284,10 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_filepath, log
               f"XP: {best_quest['rewards']}, "
               f"Energy: {best_quest['duration']/60}")
         
-        with open(autoLoginUser_filepath, 'r') as file:
+        with open(autoLoginUser_file, 'r') as file:
             data = json.load(file)
 
-        with open(autoLoginUser_filepath, 'w') as file:
+        with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print(f"Unable to start quest {best_quest["id"]}")
@@ -294,7 +298,26 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_filepath, log
 
     return response_json
 
-def check_for_quest_complete(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=None, verbose=False):
+    start_time = time.time()
+    while time.time() - start_time < 5*cooldown:
+        response = check_for_quest_complete_request(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath)
+        
+        if not response['error']:  # handles None or ""
+            break
+        elif response['error'] == "errFinishNotYetCompleted":
+            print(f"Quest not finished yet. Waiting {cooldown} seconds before retrying...")
+            time.sleep(cooldown)
+        elif response['error'] == "errUserNotAuthorized":
+            print(f"User not authorized. Refreshing user info and retrying in {cooldown} seconds...")
+            request_user_info(request_file, body_file, autoLoginUser_file, verbose=False)
+            time.sleep(cooldown)
+        else:
+            raise RuntimeError(f"Unexpected error: {response['error']}")
+    
+    return response
+
+def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -334,10 +357,10 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_filepath, lo
     if response_json["error"] == "":
         print("Quest completed successfully verified")
 
-        with open(autoLoginUser_filepath, 'r') as file:
+        with open(autoLoginUser_file, 'r') as file:
             data = json.load(file)
 
-        with open(autoLoginUser_filepath, 'w') as file:
+        with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to verify quest completion")
@@ -347,7 +370,7 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_filepath, lo
 
     return response_json
 
-def claim_quest_rewards(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -389,10 +412,10 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_filepath, log_fil
     if response_json["error"] == "":
         print("Quest reward successfully collected")
 
-        with open(autoLoginUser_filepath, 'r') as file:
+        with open(autoLoginUser_file, 'r') as file:
             data = json.load(file)
 
-        with open(autoLoginUser_filepath, 'w') as file:
+        with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to collect quest reward")
@@ -402,10 +425,10 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_filepath, log_fil
 
     return response_json
 
-def buy_quest_energy(request_file, body_file, autoLoginUser_filepath, CONSTANTS, log_filepath=None, verbose=False):
-    player_level = get_player_level(autoLoginUser_filepath)
-    energy_refilled_today = get_quest_energy_refilled_today(autoLoginUser_filepath)
-    game_currency = get_game_currency(autoLoginUser_filepath)
+def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log_filepath=None, verbose=False):
+    player_level = get_player_level(autoLoginUser_file)
+    energy_refilled_today = get_quest_energy_refilled_today(autoLoginUser_file)
+    game_currency = get_game_currency(autoLoginUser_file)
     energy_refill_cost = get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS)
     print(
         f"Trying to buy energy!\n"
@@ -418,14 +441,14 @@ def buy_quest_energy(request_file, body_file, autoLoginUser_filepath, CONSTANTS,
     if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
         raise RuntimeError("Not enough currency to refill energy!")
         
-    current_quest_energy = get_current_energy(autoLoginUser_filepath)
+    current_quest_energy = get_current_energy(autoLoginUser_file)
     print("quest_energy:", current_quest_energy)
         
-    response = buy_quest_energy_request(request_file, body_file, autoLoginUser_filepath, log_filepath, verbose)
+    response = buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath, verbose)
     
     return response
 
-def buy_quest_energy_request(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -465,10 +488,10 @@ def buy_quest_energy_request(request_file, body_file, autoLoginUser_filepath, lo
     if response_json["error"] == "":
         print("Quest energy purchased successfully")
     
-        with open(autoLoginUser_filepath, 'r') as file:
+        with open(autoLoginUser_file, 'r') as file:
             data = json.load(file)
 
-        with open(autoLoginUser_filepath, 'w') as file:
+        with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to purchase quest energy")
@@ -489,7 +512,7 @@ def get_energy_refill_cost(level, energy_refilled_today, const):
     base = game_currency_per_time(level, const)
     return round(const["cost_factors"][tier] * base)
 
-def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_filepath, log_filepath=None, verbose=False):
+def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -528,10 +551,10 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
     if response_json["error"] == "":
         print("Free treasure reveal items claimed successfully")
 
-        with open(autoLoginUser_filepath, 'r') as file:
+        with open(autoLoginUser_file, 'r') as file:
             data = json.load(file)
 
-        with open(autoLoginUser_filepath, 'w') as file:
+        with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
         print("Unable to claim free treasure reveal items")
