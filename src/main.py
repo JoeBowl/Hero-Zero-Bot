@@ -1,12 +1,18 @@
-from bot2 import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
+from pathlib import Path
+import sys
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+
+from src.bot2 import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
 import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = "src/defaultHeaders2.txt"
-    defaultBody_filepath = "src/defaultBody2.txt"
-    autoLoginUser_filepath = "src/autoLoginUser2.json"
-    log_filepath = "src/log.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
+    log_filepath = f"{BASE_DIR}/src/log.txt"
     COOLDOWN = 5
 
     REWARD_WEIGHTS = {
@@ -28,6 +34,7 @@ if __name__ == "__main__":
         ("slotmachine_jetons", None): 1e3,
         ("event_item", 'easter_eggs'): 2e3,
         ("event_item", 'easter_bunnies'): 2e3,
+        ("repeat_story_dungeon_index", None): 1e3,
     }
     
     # Constants from the game files that are needed for the buy_quest_energy function
@@ -65,18 +72,12 @@ if __name__ == "__main__":
             print("quest_energy:", current_quest_energy)
             # break
         
-            # If less than 30 energy available, buy more
-            # if current_quest_energy < 30:
-            #     response = buy_quest_energy(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, CONSTANTS, log_filepath=log_filepath)
-                
             # Check if best_quest is valid
             if not best_quest or best_quest["id"] is None:
                 print("No valid quest found. Breaking loop.")
                 break
             elif best_quest["energy_cost"] > current_quest_energy:
                 response = buy_quest_energy(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, CONSTANTS, log_filepath=log_filepath)
-                # print(f"Not enough energy for quest {best_quest['id']}. Required: {best_quest['energy_cost']}, Available: {current_quest_energy}. Breaking loop.")
-                # break
 
             # Start a quest
             response = start_quest(best_quest, defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath)

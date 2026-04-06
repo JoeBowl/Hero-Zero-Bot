@@ -441,10 +441,10 @@ def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log
     if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
         raise RuntimeError("Not enough currency to refill energy!")
         
+    response = buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath, verbose)
+    
     current_quest_energy = get_current_energy(autoLoginUser_file)
     print("quest_energy:", current_quest_energy)
-        
-    response = buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath, verbose)
     
     return response
 
