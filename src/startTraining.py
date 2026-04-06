@@ -1,13 +1,43 @@
+from pathlib import Path
+import sys
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+
 import urllib
 import requests
 import json
-from src.bot import generate_auth, parse_request_with_body, log_response
+from src.bot import generate_auth, parse_request_with_body, log_response, merge_json
+
+def get_training_count(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
+
+    return data["data"]["character"]["training_count"]
+
+def def_is_training_available(autoLoginUser_path):
+    if get_training_pool(autoLoginUser_path) == "":
+        return False
+    else:
+        return True
+
+def get_training_pool(autoLoginUser_path):
+    with open(autoLoginUser_path, 'r') as file:
+        data = json.load(file)
+
+    return data["data"]["character"]["training_pool"]
 
 def get_current_training_energy(autoLoginUser_path):
     with open(autoLoginUser_path, 'r') as file:
         data = json.load(file)
 
     return data["data"]["character"]["training_energy"]
+
+def get_active_training_id(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
+        data = json.load(file)
+
+    return data["data"]["character"]["active_quest_id"]
 
 def get_traing_time_left(autoLoginUser_path):
     with open(autoLoginUser_path, 'r') as file:
@@ -18,7 +48,7 @@ def get_traing_time_left(autoLoginUser_path):
     
     return training_end_time - server_time
 
-def start_training(training_id, request_file, body_file, log_filepath=None, verbise=False):
+def start_training(training_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -57,20 +87,34 @@ def start_training(training_id, request_file, body_file, log_filepath=None, verb
 
     response_json = response.json()
     if response_json["error"] == "":
-        print(f"")
+        print("Training started successfully")
+    
+        with open(autoLoginUser_file, 'r') as file:
+            data = json.load(file)
+    
+        with open(autoLoginUser_file, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print(f"")
-        
+        print("Unable to start training")
+    
     if log_filepath:
         log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     return response_json
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = "src/defaultHeaders.txt"
-    defaultBody_filepath = "src/defaultBody.txt"
-    autoLoginUser_filepath = "src/autoLoginUser.json"
-    log_filepath = "src/log.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser2.json"
+    log_filepath = f"{BASE_DIR}/src/log.txt"
     
-    print(get_current_training_energy(autoLoginUser_filepath))
-    print(get_traing_time_left(autoLoginUser_filepath))
+    active_trainning = get_active_training_id(autoLoginUser_filepath)
+    
+    if active_trainning == 0:
+        print(get_training_count(autoLoginUser_filepath))
+        
+        print(def_is_training_available(autoLoginUser_filepath))
+        print(get_training_pool(autoLoginUser_filepath))
+    else:
+        print(get_current_training_energy(autoLoginUser_filepath))
+        print(get_traing_time_left(autoLoginUser_filepath))

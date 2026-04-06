@@ -59,6 +59,7 @@ if __name__ == "__main__":
         }
     }
 
+    # Login
     request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
 
     while True:
@@ -70,7 +71,7 @@ if __name__ == "__main__":
             
             current_quest_energy = get_current_energy(autoLoginUser_filepath)
             print("quest_energy:", current_quest_energy)
-            # break
+            break
         
             # Check if best_quest is valid
             if not best_quest or best_quest["id"] is None:
