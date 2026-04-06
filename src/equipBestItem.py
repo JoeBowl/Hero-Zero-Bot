@@ -1,12 +1,7 @@
 import urllib
 import requests
-from auth import generate_auth
 import json
-
-import urllib
-import requests
-from auth import generate_auth
-from bot2 import parse_request_with_body
+from bot import generate_auth, parse_request_with_body
 
 def get_item_score(item):
     return (

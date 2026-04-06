@@ -4,7 +4,7 @@ import sys
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-from src.bot2 import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
+from src.bot import request_user_info, get_active_quest_id, get_current_energy, get_best_quest, start_quest, check_for_quest_complete, claim_quest_rewards, buy_quest_energy
 import datetime
 import time
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         ('herobook_item_epic', None): 1e5,
         ("herobook_item_rare", None): 2e3,
         ("herobook_item_common", None): 2e3,
-        ('story_dungeon_item', 'storydungeon1_4_laundry'): 2e3,
+        ('story_dungeon_item', None): 2e3,
         ("event_item", "server_launch_blooming_nature_lotus"): 0,
         ("slotmachine_jetons", None): 1e3,
         ("event_item", 'easter_eggs'): 2e3,

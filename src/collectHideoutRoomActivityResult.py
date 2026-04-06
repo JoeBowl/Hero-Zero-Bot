@@ -1,8 +1,7 @@
 import urllib
 import requests
-from src.auth import generate_auth
 import json
-from src.bot2 import parse_request_with_body, log_response
+from src.bot import generate_auth, parse_request_with_body, log_response
 
 def collect_hideout_room(hideout_room_id, request_file, body_file, log_filepath=None, verbise=False):
     with open(request_file, 'r') as f:

@@ -1,8 +1,7 @@
 import urllib
 import requests
-from src.auth import generate_auth
 import json
-from src.bot2 import parse_request_with_body, log_response
+from src.bot import generate_auth, parse_request_with_body, log_response
 
 def get_current_training_energy(autoLoginUser_path):
     with open(autoLoginUser_path, 'r') as file:
