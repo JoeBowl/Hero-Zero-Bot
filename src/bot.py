@@ -155,6 +155,12 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=True, verbose=False
         # Weighted score
         score = score / duration
 
+        # Add quest type multiplier
+        if quest["fight_npc_identifier"] == "":
+            score = score * weights[("timer", None)]
+        else:
+            score = score * weights[("fight", None)]
+
         if verbose:
             print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
                   f"{score:<15.2f} {rewards}")

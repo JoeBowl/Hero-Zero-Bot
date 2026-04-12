@@ -23,6 +23,10 @@ if __name__ == "__main__":
 
         # Upgrade system
         ("item", None): 2e3,
+        
+        # Quest type multipliers
+        ("fight", None): 0.1,   # higher reward for combat
+        ("timer", None): 1.0,   # baseline
 
         # Event-specific rewards
         ("dungeon_key", None): 1e5,
@@ -71,7 +75,7 @@ if __name__ == "__main__":
             
             current_quest_energy = get_current_energy(autoLoginUser_filepath)
             print("quest_energy:", current_quest_energy)
-            break
+            # break
         
             # Check if best_quest is valid
             if not best_quest or best_quest["id"] is None:
