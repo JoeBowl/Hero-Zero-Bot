@@ -4,6 +4,8 @@ import datetime
 import hashlib
 import json
 import time
+from functools import reduce
+import operator
 
 def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False):
     with open(request_file, 'r') as f:
@@ -180,6 +182,9 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=True, verbose=False
         if score > best_quest["score"]:
             best_quest = quest.copy()
             best_quest["score"] = score
+
+    if verbose:
+        print(f"Best quest: {best_quest['id']} | Duration: {best_quest['duration']/60:.1f} min | Rewards: {best_quest['rewards']}")
 
     return best_quest
 
@@ -575,6 +580,103 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
         log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     return response_json
+
+def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
+    hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
+    
+    rooms_to_collect = ["main_building", "stone_production", "glue_production"]
+    ids_to_collect = []
+
+    collect = False
+    for hideout_room in hideout_rooms:
+        identifier = hideout_room.get("identifier")
+
+        if identifier in rooms_to_collect:
+            id = hideout_room.get("id")
+            ids_to_collect.append(id)
+
+            current_resource_amount = hideout_room["current_resource_amount"]
+            max_resource_amount = hideout_room["max_resource_amount"]
+            
+            if current_resource_amount >= 0.5*max_resource_amount:
+                collect = True
+
+    if collect == True:
+        for hideout_room_id in ids_to_collect:
+            response = collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            time.sleep(cooldown)
+    else:
+        print("No hideout rooms ready for collection.")
+
+    return collect
+
+def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = {}
+    DEFAULT_BODY["hideout_room_id"] = str(hideout_room_id)
+    DEFAULT_BODY["collect"] = "true"
+    DEFAULT_BODY["action"] = "collectHideoutRoomActivityResult"
+    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
+    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
+    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+    DEFAULT_BODY["rct"] = "2"
+    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
+    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
+    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+
+    response_json = response.json()
+    if response_json["error"] == "":
+        print(f"Hideout room {hideout_room_id} successfully collected")
+        
+        with open(autoLoginUser_file, 'r') as file:
+            data = json.load(file)
+
+        with open(autoLoginUser_file, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
+    else:
+        print(f"Unable to collect hideout room {hideout_room_id}")
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
+
+    return response_json
+
+def get_json_value(filepath, path, default=None):
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    
+    # Convert dot-separated string to list of keys
+    if isinstance(path, str):
+        path = path.split(".")
+    
+    try:
+        return reduce(operator.getitem, path, data)
+    except (KeyError, IndexError, TypeError):
+        return default
+
 
 def log_response(action, response, log_file='quest_log.txt'):
     # Get the current timestamp

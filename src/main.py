@@ -73,7 +73,6 @@ if __name__ == "__main__":
 
         if active_quest == 0:
             best_quest = bot.get_best_quest(autoLoginUser_filepath, REWARD_WEIGHTS, check_energy=False, verbose=True)
-            print(f"Best quest: {best_quest['id']} | Duration: {best_quest['duration']/60:.1f} min | Rewards: {best_quest['rewards']}")
             
             current_quest_energy = bot.get_current_energy(autoLoginUser_filepath)
             print("quest_energy:", current_quest_energy)
