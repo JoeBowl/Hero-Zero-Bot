@@ -65,6 +65,12 @@ def generate_auth(action, user_id):
     
     return auth
 
+def get_server_time(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as file:
+        data = json.load(file)
+
+    return data["data"]["server_time"]
+
 def get_current_energy(autoLoginUser_file):
     with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
