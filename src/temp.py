@@ -1,130 +1,99 @@
+from pathlib import Path
+import sys
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
+
+
+from src.tasks import Task
+import src.tasks as tasks
+import src.bot as bot
+from functools import partial
+import datetime
 import time
-import json
 
-def get_paths(d, prefix=""):
-    paths = set()
+if __name__ == "__main__":
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
+    log_filepath = f"{BASE_DIR}/src/log.txt"
+    COOLDOWN = 5
 
-    if isinstance(d, dict):
-        for k, v in d.items():
-            new_prefix = f"{prefix}.{k}" if prefix else k
-            paths.add(new_prefix)
-            paths.update(get_paths(v, new_prefix))
+    REWARD_WEIGHTS = {
+        # Standard resources
+        ("xp", None): 1.0,
+        ("coins", None): 0.0,
+        ("premium", None): 1e10,
 
-    elif isinstance(d, list):
-        for i, item in enumerate(d):
-            new_prefix = f"{prefix}[{i}]"
-            paths.add(new_prefix)
-            paths.update(get_paths(item, new_prefix))
+        # Upgrade system
+        ("item", None): 1e3,
+        
+        # Quest type multipliers
+        ("fight", None): 0.1,
+        ("timer", None): 1.0,
 
-    return paths
-
-def merge_json(json1, json2):
-    # If both are dicts → merge recursively
-    if isinstance(json1, dict) and isinstance(json2, dict):
-        for key, value in json2.items():
-            if key in json1:
-                json1[key] = merge_json(json1[key], value)
-            else:
-                json1[key] = value
-        return json1
-
-    # If both are lists → overwrite by index (like your compare logic)
-    elif isinstance(json1, list) and isinstance(json2, list):
-        for i, item in enumerate(json2):
-            if i < len(json1):
-                json1[i] = merge_json(json1[i], item)
-            else:
-                json1.append(item)
-        return json1
-
-    # Otherwise → overwrite value
-    else:
-        return json2
-
-def compare_keys(json1, json2):
-    paths1 = get_paths(json1)
-    paths2 = get_paths(json2)
-
-    missing = paths2 - paths1
-    return missing
-
-def sort_key(x):
-    """Create a comparable key for any JSON-like object"""
-    if isinstance(x, dict):
-        return tuple(sorted((k, sort_key(v)) for k, v in x.items()))
-
-    elif isinstance(x, list):
-        return tuple(sorted(sort_key(i) for i in x))
-
-    else:
-        return x
+        # Event-specific rewards
+        ("dungeon_key", None): 2e3,
+        ('story_dungeon_item', None): 2e3,
+        ("repeat_story_dungeon_index", None): 2e3,
+        ('herobook_item_epic', None): 1e5,
+        ("herobook_item_rare", None): 1e4,
+        ("herobook_item_common", None): 1e4,
+        ("slotmachine_jetons", None): 1e3,
+        # ("event_item", 'sun_moon_stars_season_arc_event_2024_item'): 2e3,
+        # ("event_item", "server_launch_blooming_nature_lotus"): 2e3,
+        # ("event_item", 'easter_eggs'): 2e3,
+        # ("event_item", 'easter_bunnies'): 2e3,
+        ("event_item", None): 2e3,
+    }
     
-def compare_values(json1, json2, path=""):
-    diffs = []
+    # Constants from the game files that are needed for the buy_quest_energy function
+    CONSTANTS = {
+        "energy_per_refill": 50,
+        "quest_max_refill_amount_per_day": 200,
+        "cost_factors": [
+            1800,
+            6300,
+            10800,
+            15300,
+            30600,
+            45900,
+            61200,
+            76500
+        ],
+        "coins_per_time": {
+            "base": 0.02,
+            "scale": 0.01,
+            "level_scale": 0.35,
+            "level_exp": 1.55
+        }
+    }
 
-    if isinstance(json2, dict):
-        for key in json2:
-            new_path = f"{path}.{key}" if path else key
+    tasks = [
+        Task("Quest", 
+             partial(tasks.do_quest,
+             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)),
+        
+        Task("CollectHideoutRooms", 
+             partial(tasks.do_collect_hideout_rooms,
+             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True)),
+    ]
 
-            if key in json1:
-                diffs.extend(compare_values(json1[key], json2[key], new_path))
-            else:
-                # Shouldn't happen if you already validated keys
-                diffs.append((new_path, None, json2[key]))
+    # Login
+    # bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
 
-    elif isinstance(json2, list):
-        sorted1 = sorted(json1, key=sort_key)
-        sorted2 = sorted(json2, key=sort_key)
+    while True:
+        # Find the next available task
+        now = datetime.datetime.now()
 
-        for i, item in enumerate(sorted2):
-            new_path = f"{path}[{i}]"
+        next_task = min(tasks, key=lambda t: t.next_available_time)
 
-            if i < len(sorted1):
-                diffs.extend(compare_values(sorted1[i], item, new_path))
-            else:
-                diffs.append((new_path, None, item))
-
-        # detect removed items
-        for i in range(len(sorted2), len(sorted1)):
-            diffs.append((f"{path}[{i}]", sorted1[i], None))
-
-    else:
-        # Compare actual values
-        if json1 != json2:
-            diffs.append((path, json1, json2))
-
-    return diffs
-
-# Function to read and load JSON data from files
-def load_json(file_path):
-    with open(file_path, "r") as f:
-        return json.load(f)
-
-# Load JSON files
-first_json = load_json("src/merged.json")
-second_json = load_json("src/autoLoginUser2.json")
-
-# Compare keys
-missing_keys = compare_keys(first_json, second_json)
-
-if not missing_keys:
-    print("All keys from second JSON exist in first JSON ✅")
-else:
-    print("Missing keys:")
-    for k in sorted(missing_keys):
-        print(k)
-
-# Compare values
-differences = compare_values(first_json, second_json)
-
-if not differences:
-    print("No value differences 🎯")
-else:
-    print("Differences found:")
-    for path, v1, v2 in differences:
-        print(f"{path}: {v1} → {v2}")
-
-# merged = merge_json(first_json, second_json)
-
-# with open("src/merged.json", "w") as f:
-#     json.dump(merged, f, indent=2)
+        if next_task.is_available():
+            wait_time = next_task.run()
+        else:
+            # Sleep until the next task is ready
+            sleep_time = (next_task.next_available_time - now).total_seconds()
+            minutes = int(sleep_time // 60)
+            seconds = int(sleep_time % 60)
+            print(f"Sleeping for {minutes:02d}:{seconds:02d} minutes")
+            time.sleep(sleep_time)
