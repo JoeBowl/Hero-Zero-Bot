@@ -294,6 +294,9 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_fil
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+    
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     response_json = response.json()
     if response_json["error"] == "":
@@ -307,11 +310,7 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_fil
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print(f"Unable to start quest {best_quest["id"]}")
-        print(response_json)
-    
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        raise RuntimeError(f"Unable to start quest {best_quest["id"]}")
 
     return response_json
 
@@ -369,7 +368,10 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-
+        
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        
     response_json = response.json()
     if response_json["error"] == "":
         print("Quest completed successfully verified")
@@ -380,10 +382,7 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print("Unable to verify quest completion")
-        
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        raise RuntimeError("Unable to verify quest completion")
 
     return response_json
 
@@ -424,6 +423,9 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+            
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     response_json = response.json()
     if response_json["error"] == "":
@@ -435,10 +437,7 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print("Unable to collect quest reward")
-        
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        raise RuntimeError("Unable to collect quest reward")
 
     return response_json
 
@@ -453,7 +452,8 @@ def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log
     )
     
     if energy_refilled_today >= CONSTANTS["quest_max_refill_amount_per_day"]:
-        raise RuntimeError("Energy refill limit reached!")
+        print("Energy refill limit reached!")
+        return {"data": "", "error": "refillLimitReached"}
     
     if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
         raise RuntimeError("Not enough currency to refill energy!")
@@ -500,6 +500,9 @@ def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_fi
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+            
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     response_json = response.json()
     if response_json["error"] == "":
@@ -511,10 +514,7 @@ def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_fi
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print("Unable to purchase quest energy")
-        
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        raise RuntimeError("Unable to purchase quest energy")
 
     return response_json
 
@@ -563,6 +563,9 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+            
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     response_json = response.json()
     if response_json["error"] == "":
@@ -574,20 +577,16 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print("Unable to claim free treasure reveal items")
-        
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
+        raise RuntimeError("Unable to claim free treasure reveal items")
 
     return response_json
 
-def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
+def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, collect=True, verbose=False):
     hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
     
     rooms_to_collect = ["main_building", "stone_production", "glue_production"]
     ids_to_collect = []
 
-    collect = False
     for hideout_room in hideout_rooms:
         identifier = hideout_room.get("identifier")
 
@@ -601,7 +600,7 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
             if current_resource_amount >= 0.5*max_resource_amount:
                 collect = True
 
-    if collect == True:
+    if collect:
         for hideout_room_id in ids_to_collect:
             response = collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             time.sleep(cooldown)
@@ -646,6 +645,9 @@ def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoL
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+            
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
 
     response_json = response.json()
     if response_json["error"] == "":
@@ -657,12 +659,186 @@ def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoL
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
     else:
-        print(f"Unable to collect hideout room {hideout_room_id}")
-        
+        raise RuntimeError(f"Unable to collect hideout room {hideout_room_id}")
+
+    return response_json
+
+def get_user_vouchers_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = {}
+    DEFAULT_BODY["stream_type"] = "v"
+    DEFAULT_BODY["stream_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["start_message_id"] = "0"
+    DEFAULT_BODY["action"] = "getStreamMessages"
+    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
+    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
+    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+    DEFAULT_BODY["rct"] = "2"
+    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
+    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
+    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+
+    if log_filepath:
+        log_response(DEFAULT_BODY["action"], response, log_filepath)
+    
+    response_json = response.json()
+    if response_json["error"] == "":
+        print("User vouchers retrieved successfully")
+    
+        with open(autoLoginUser_file, 'r') as file:
+            data = json.load(file)
+    
+        with open(autoLoginUser_file, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
+    else:
+        raise RuntimeError("Unable to retrieve user vouchers")
+
+    return response_json
+
+def redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = {}
+    DEFAULT_BODY["code"] = str(voucher_code)
+    DEFAULT_BODY["action"] = "redeemVoucher"
+    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
+    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
+    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
+    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+    DEFAULT_BODY["rct"] = "2"
+    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
+    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
+    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+            
     if log_filepath:
         log_response(DEFAULT_BODY["action"], response, log_filepath)
 
+    response_json = response.json()
+    if response_json["error"] == "":
+        print("Voucher redeemed successfully")
+    
+        with open(autoLoginUser_file, 'r') as file:
+            data = json.load(file)
+    
+        with open(autoLoginUser_file, 'w') as file:
+            json.dump(merge_json(data, response_json), file, indent=4)
+    else:
+        raise RuntimeError("Unable to redeem voucher")
+
     return response_json
+    
+def get_energy_voucher(autoLoginUser_file):
+    user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
+    
+    for voucher in user_vouchers:
+        rewards_raw = voucher.get("rewards", "{}")
+        
+        try:
+            rewards = json.loads(rewards_raw)
+        except (json.JSONDecodeError, TypeError):
+            continue  # skip invalid entries
+        
+        # Check if there's exactly one reward and it's "quest_energy"
+        if len(rewards) == 1 and "quest_energy" in rewards:
+            return voucher
+    
+    return None
+
+def redeem_energy_voucher(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    if verbose:
+        print("Trying to redeem voucher")
+    
+    # Step 1: Try to get vouchers from local file
+    user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
+    if user_vouchers is None:
+        user_vouchers = []
+
+    # Step 2: If no vouchers locally, fetch from server
+    if not user_vouchers:
+        if verbose:
+            print("No vouchers found locally, fetching from server...")
+        get_user_vouchers_request(request_file, body_file, autoLoginUser_file, log_filepath, verbose)
+        user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
+        
+    if user_vouchers is None:
+        raise RuntimeError("redeem_energy_voucher: Unable to retrieve user vouchers from local file or server")
+        
+    if verbose:
+        print(f"Found {len(user_vouchers)} vouchers")
+
+    # Step 3: Find quest_energy voucher
+    energy_voucher = None
+    for voucher in user_vouchers:
+        rewards_raw = voucher.get("rewards", "{}")
+        try:
+            rewards = json.loads(rewards_raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        if isinstance(rewards, dict) and len(rewards) == 1 and "quest_energy" in rewards:
+            energy_voucher = voucher
+            break
+
+    if not energy_voucher:
+        if verbose:
+            print("No quest_energy voucher found")
+        return {"error": "noQuestEnergyVoucher"}
+
+    # Step 4: Redeem the voucher
+    voucher_code = energy_voucher.get("code")
+    if not voucher_code:
+        raise RuntimeError(f"redeem_energy_voucher: Unable to get voucher code for {energy_voucher}")
+
+    if verbose:
+        print(f"Redeeming quest_energy voucher: {voucher_code}")
+
+    redeem_response = redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_file, log_filepath, verbose)
+
+    return redeem_response
 
 def get_json_value(filepath, path, default=None):
     with open(filepath, 'r') as f:

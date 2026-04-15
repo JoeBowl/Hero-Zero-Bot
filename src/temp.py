@@ -79,21 +79,26 @@ if __name__ == "__main__":
              defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True)),
     ]
 
-    # Login
-    # bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
-
+    last_run_date = None
+    
     while True:
-        # Find the next available task
         now = datetime.datetime.now()
+        
+        # Login
+        if last_run_date is None or last_run_date < now.date():
+            print("Logging in")
+            bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
+            last_run_date = now.date()
 
         next_task = min(tasks, key=lambda t: t.next_available_time)
 
         if next_task.is_available():
-            wait_time = next_task.run()
+            next_task.run()
         else:
             # Sleep until the next task is ready
-            sleep_time = (next_task.next_available_time - now).total_seconds()
-            minutes = int(sleep_time // 60)
-            seconds = int(sleep_time % 60)
-            print(f"Sleeping for {minutes:02d}:{seconds:02d} minutes")
-            time.sleep(sleep_time)
+            wait_time = (next_task.next_available_time - now).total_seconds()
+            finish_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
+            minutes = int(wait_time // 60)
+            seconds = int(wait_time % 60)
+            print(f"Waiting {wait_time // 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
+            time.sleep(wait_time)

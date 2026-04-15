@@ -30,10 +30,8 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
 
     if active_quest == 0:
         best_quest = bot.get_best_quest(autoLoginUser_file, REWARD_WEIGHTS, check_energy=False, verbose=verbose)
-
-        wait_time = best_quest['duration'] + COOLDOWN
-        return wait_time
-        raise RuntimeError("test")
+        # return 30
+        # raise RuntimeError("test")
             
         current_quest_energy = bot.get_current_energy(autoLoginUser_file)
         print("quest_energy:", current_quest_energy)
@@ -42,6 +40,12 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
             raise RuntimeError("No valid quest found. Breaking loop.")
         elif best_quest["energy_cost"] > current_quest_energy:
             response = bot.buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log_filepath=log_filepath, verbose=verbose)
+            
+            if response["error"] == "refillLimitReached":
+                now = datetime.datetime.now()
+                tomorrow = now.date() + datetime.timedelta(days=1)
+                reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+                return (reset_time - now).total_seconds()
 
         response = bot.start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         
@@ -53,6 +57,6 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
         return 5  # recheck in 5 secs
 
 def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
-    # collected = bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
+    collected = bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
 
-    return 20*60
+    return 3600

@@ -66,7 +66,7 @@ if __name__ == "__main__":
     }
 
     # Login
-    # bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
+    bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
 
     while True:
         active_quest = bot.get_active_quest_id(autoLoginUser_filepath)
