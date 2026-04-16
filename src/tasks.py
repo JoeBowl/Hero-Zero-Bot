@@ -57,6 +57,123 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
         return 5  # recheck in 5 secs
 
 def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
-    collected = bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
+    bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
 
     return 3600
+
+def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    while True:
+        active_league_fight_id = bot.get_json_value(autoLoginUser_file, "data.character.active_league_fight_id")
+        
+        if active_league_fight_id == 0:
+            league_stamina = bot.get_json_value(autoLoginUser_file, "data.character.league_stamina")
+    
+            if league_stamina < 20:
+                if verbose:
+                    print("Not enough league stamina")
+                break
+            
+            candidates_weak = []
+            candidates_same_team = []
+            candidates_all = []
+            opponents_in_my_guild = bot.get_league_opponents_in_my_guild(autoLoginUser_file)
+            my_stats = bot.get_stats(
+                bot.get_json_value(autoLoginUser_file, "data.character")
+            )
+            
+            # Start by checking for weak characters that are not in the same guild as me
+            for op in bot.get_json_value(autoLoginUser_file, "data.league_opponents"):
+                op_stats = bot.get_stats(op["opponent"])
+                
+                is_guild = op["opponent"]["name"] in opponents_in_my_guild
+                
+                entry = op.copy()
+                entry["stats"] = op_stats
+                
+                candidates_all.append(entry)
+                
+                if is_guild:
+                    candidates_same_team.append(entry)
+                elif my_stats - op_stats >= 800:
+                    candidates_weak.append(entry)
+                    
+            if len(candidates_weak) > 0:
+                selected = max(candidates_weak, key=lambda x: x["opponent"]["league_points"])
+            elif candidates_same_team:
+                selected = min(candidates_same_team, key=lambda x: x["stats"])
+            else:
+                selected = min(candidates_all, key=lambda x: x["stats"])
+                
+            # print(selected["opponent"]["name"])
+            # print(selected["opponent"]["id"])
+            # break
+        
+            bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            bot.get_league_rewards(autoLoginUser_file, verbose=True)
+            time.sleep(1)
+            
+        bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        # break
+    
+    return 3600*2
+
+def do_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    while True:
+        active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
+        
+        if active_duel_id == 0:
+            duel_stamina = bot.get_json_value(autoLoginUser_file, "data.character.duel_stamina")
+    
+            if duel_stamina < 20:
+                if verbose:
+                    print("Not enough duel stamina")
+                break
+            
+            candidates_weak = []
+            candidates_same_team = []
+            candidates_all = []
+            opponents_in_my_guild = bot.get_duel_opponents_in_my_guild(autoLoginUser_file)
+            my_stats = bot.get_stats(
+                bot.get_json_value(autoLoginUser_file, "data.character")
+            )
+            
+            # Start by checking for weak characters that are not in the same guild as me
+            for op in bot.get_json_value(autoLoginUser_file, "data.opponents"):
+                op_stats = bot.get_stats(op)
+                
+                is_guild = op["name"] in opponents_in_my_guild
+                
+                entry = op.copy()
+                entry["stats"] = op_stats
+                
+                candidates_all.append(entry)
+                
+                if is_guild:
+                    candidates_same_team.append(entry)
+                elif my_stats - op_stats >= 800:
+                    candidates_weak.append(entry)
+                    
+            if not candidates_all:
+                raise RuntimeError("do_duel: No opponents available")
+                    
+            if len(candidates_weak) > 0:
+                selected = max(candidates_weak, key=lambda x: x["honor"])
+            elif candidates_same_team:
+                selected = min(candidates_same_team, key=lambda x: x["stats"])
+            else:
+                selected = min(candidates_all, key=lambda x: x["stats"])
+                
+            bot.start_duel(selected["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            bot.get_duel_rewards(autoLoginUser_file, verbose=True)
+            time.sleep(1)
+            
+        bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        # break
+    
+    return 40*60

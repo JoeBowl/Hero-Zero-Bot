@@ -7,48 +7,6 @@ import time
 from functools import reduce
 import operator
 
-def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = parsed_request["body"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-
-    # Export the response
-    try:
-        response_json = response.json()
-        if not response_json['error']:
-            with open(autoLoginUser_file, "w") as json_file:
-                json.dump(response_json, json_file, indent=4)
-                print(f"Response saved to {autoLoginUser_file}")
-        else:
-            raise RuntimeError(f"Response error|request_user_info: {response_json['error']}")
-            
-    except ValueError:
-        with open(autoLoginUser_file + ".txt", "w") as txt_file:
-            txt_file.write(response.text)
-
-        raise RuntimeError("Response error|request_user_info: Response is not in JSON format.")
-
 def get_current_energy(autoLoginUser_file):
     with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
@@ -61,7 +19,126 @@ def get_active_quest_id(autoLoginUser_file):
 
     return data["data"]["character"]["active_quest_id"]
 
-def get_best_quest(autoLoginUser_file, weights, check_energy=True, verbose=False):
+def get_stats(character):
+    return (
+        character["stat_total_stamina"] +
+        character["stat_total_strength"] +
+        character["stat_total_critical_rating"] +
+        character["stat_total_dodge_rating"]
+    )
+
+def get_energy_refill_cost(level, energy_refilled_today, const):
+    tier = energy_refilled_today // const["energy_per_refill"]
+    tier = min(tier, len(const["cost_factors"]) - 1)
+
+    c = const["coins_per_time"]
+    base = round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
+    
+    return round(const["cost_factors"][tier] * base)
+    
+def get_energy_voucher(autoLoginUser_file):
+    user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
+    
+    for voucher in user_vouchers:
+        rewards_raw = voucher.get("rewards", "{}")
+        
+        try:
+            rewards = json.loads(rewards_raw)
+        except (json.JSONDecodeError, TypeError):
+            continue  # skip invalid entries
+        
+        # Check if there's exactly one reward and it's "quest_energy"
+        if len(rewards) == 1 and "quest_energy" in rewards:
+            return voucher
+    
+    return None
+
+def get_league_rewards(autoLoginUser_file, verbose=False):
+    with open(autoLoginUser_file, 'r') as f:
+        data = json.load(f)
+    
+    my_id = data["data"]["character"]["id"]
+    
+    profile_a_stats = json.loads(data["data"]["battle"]["profile_a_stats"])
+    profile_b_stats = json.loads(data["data"]["battle"]["profile_b_stats"])
+    
+    if my_id == data["data"]["league_fight"]["character_a_id"]:
+        me = "a"
+    elif my_id == data["data"]["league_fight"]["character_b_id"]:
+        me = "b"
+    else:
+        raise RuntimeError("get_duel_rewards: Im none?")
+    
+    winner = data["data"]["battle"]["winner"]
+    rewards = json.loads(data["data"]["league_fight"][f"character_{me}_rewards"])
+    opponent_name = data["data"]["opponent"]["name"]
+    
+    if verbose:
+        if winner == me:
+            print(f"League fight won against {opponent_name}. Rewards: {rewards}")
+        else:
+            print(f"League fight against {opponent_name}. Rewards: {rewards}")
+    
+    return winner == me, rewards
+
+def get_duel_rewards(autoLoginUser_file, verbose=False):
+    with open(autoLoginUser_file, 'r') as f:
+        data = json.load(f)
+    
+    my_id = data["data"]["character"]["id"]
+    
+    if my_id == data["data"]["duel"]["character_a_id"]:
+        me = "a"
+    elif my_id == data["data"]["duel"]["character_b_id"]:
+        me = "b"
+    else:
+        raise RuntimeError("get_duel_rewards: Im none?")
+    
+    winner = data["data"]["battle"]["winner"]
+    rewards = json.loads(data["data"]["duel"][f"character_{me}_rewards"])
+    opponent_name = data["data"]["opponent"]["name"]
+    
+    if verbose:
+        if winner == me:
+            print(f"Duel won against {opponent_name}. Rewards: {rewards}")
+        else:
+            print(f"Duel lost against {opponent_name}. Rewards: {rewards}")
+    
+    return winner == me, rewards
+    
+def get_league_opponents_in_my_guild(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as f:
+        data = json.load(f)
+
+    opponents_names = {
+        opponent["opponent"]["name"]
+        for opponent in data["data"]["league_opponents"]
+    }
+
+    guild_members_names = {
+        member["name"]
+        for member in data["data"]["guild_members"]
+    }
+
+    return list(opponents_names & guild_members_names)
+
+def get_duel_opponents_in_my_guild(autoLoginUser_file):
+    with open(autoLoginUser_file, 'r') as f:
+        data = json.load(f)
+
+    opponents_names = {
+        opponent["name"]
+        for opponent in data["data"]["opponents"]
+    }
+
+    guild_members_names = {
+        member["name"]
+        for member in data["data"]["guild_members"]
+    }
+
+    return list(opponents_names & guild_members_names)
+
+def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=False):
     with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
     
@@ -292,15 +369,6 @@ def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_fi
     )
     return response
 
-def get_energy_refill_cost(level, energy_refilled_today, const):
-    tier = energy_refilled_today // const["energy_per_refill"]
-    tier = min(tier, len(const["cost_factors"]) - 1)
-
-    c = const["coins_per_time"]
-    base = round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
-    
-    return round(const["cost_factors"][tier] * base)
-
 def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
         "claimFreeTreasureRevealItems",
@@ -413,23 +481,6 @@ def redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_
         log_filepath=log_filepath
     )
     return response
-    
-def get_energy_voucher(autoLoginUser_file):
-    user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
-    
-    for voucher in user_vouchers:
-        rewards_raw = voucher.get("rewards", "{}")
-        
-        try:
-            rewards = json.loads(rewards_raw)
-        except (json.JSONDecodeError, TypeError):
-            continue  # skip invalid entries
-        
-        # Check if there's exactly one reward and it's "quest_energy"
-        if len(rewards) == 1 and "quest_energy" in rewards:
-            return voucher
-    
-    return None
 
 def redeem_energy_voucher(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     if verbose:
@@ -482,6 +533,112 @@ def redeem_energy_voucher(request_file, body_file, autoLoginUser_file, log_filep
     redeem_response = redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_file, log_filepath, verbose)
 
     return redeem_response
+
+def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "getLeagueOpponents",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="League opponents retrieved successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def start_league_fight(character_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "startLeagueFight",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "character_id": str(character_id),
+            "use_premium": "false",
+            "refresh_opponents": "true"
+        },
+        success_msg="League fight started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "checkForLeagueFightComplete",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="League fight completion checked successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "claimLeagueFightRewards",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "discard_item": "false"
+        },
+        success_msg="League fight rewards claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "getDuelOpponents",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="Duel opponents retrieved successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def start_duel(character_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "startDuel",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "character_id": str(character_id),
+            "use_premium": "false",
+            "refresh_opponents": "true",
+            "server_id": "pt13"
+        },
+        success_msg="Duel started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "checkForDuelComplete",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="Duel completion checked successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "claimDuelRewards",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "discard_item": "false",
+            "refresh_inventory": "true"
+        },
+        success_msg="Duel rewards claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def get_json_value(filepath, path, default=None):
     with open(filepath, 'r') as f:
@@ -649,3 +806,45 @@ def perform_request(action, request_file, body_file, autoLoginUser_file, custom_
         raise RuntimeError(f"{action} failed: {response_json['error']}")
 
     return response_json
+
+def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    URL = f"https://{host}{path}"
+
+    # Get the headers
+    DEFAULT_HEADERS = parsed_request["headers"]
+
+    # Get the body
+    DEFAULT_BODY = parsed_request["body"]
+    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
+
+    # Convert the body to x-www-form-urlencoded format
+    body = urllib.parse.urlencode(DEFAULT_BODY)
+
+    DEFAULT_HEADERS["Content-Length"] = str(len(body))
+
+    # Send the POST request
+    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+
+    # Export the response
+    try:
+        response_json = response.json()
+        if not response_json['error']:
+            with open(autoLoginUser_file, "w") as json_file:
+                json.dump(response_json, json_file, indent=4)
+                print(f"Response saved to {autoLoginUser_file}")
+        else:
+            raise RuntimeError(f"Response error|request_user_info: {response_json['error']}")
+            
+    except ValueError:
+        with open(autoLoginUser_file + ".txt", "w") as txt_file:
+            txt_file.write(response.text)
+
+        raise RuntimeError("Response error|request_user_info: Response is not in JSON format.")

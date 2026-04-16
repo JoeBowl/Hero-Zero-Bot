@@ -75,7 +75,15 @@ if __name__ == "__main__":
         
         tasks.Task("CollectHideoutRooms", 
              partial(tasks.do_collect_hideout_rooms,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True))
+             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True)),
+        
+        tasks.Task("LeagueDuel",
+            partial(tasks.do_league_duel,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)),
+    
+        tasks.Task("Duel",
+            partial(tasks.do_duel,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)),
     ]
 
     last_run_date = None

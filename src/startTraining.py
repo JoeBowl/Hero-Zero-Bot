@@ -102,13 +102,36 @@ def start_training(training_id, request_file, body_file, autoLoginUser_file, log
 
     return response_json
 
+def get_best_training(autoLoginUser_file, weights, check_energy=True, verbose=False):
+    with open(autoLoginUser_file, 'r') as file:
+        data = json.load(file)
+    
+    inventory = data["data"]["inventory"]
+    items = data["data"]["items"]
+
+    best_quest = {
+        "id": None,
+        "duration": 0,
+        "rewards": "{\"coins\":0,\"xp\":0}",
+        "score": 0
+    }
+
+    if verbose:
+        print(f"{'ID':<8} {'Dur(s)':<8} {'Coins':<8} {'XP':<8} "
+              f"{'Score':<15} {'Rewards':<15}")
+        print("-" * 85)
+
+    # Loop through each quest in the JSON data
+    for quest in data["data"]["quests"]:
+
 if __name__ == "__main__":
     defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
     defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser2.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
     
-    active_trainning = get_active_training_id(autoLoginUser_filepath)
+    active_training = get_active_training_id(autoLoginUser_filepath)
+    print("active_training:", active_training)
     
     if active_trainning == 0:
         print(get_training_count(autoLoginUser_filepath))
