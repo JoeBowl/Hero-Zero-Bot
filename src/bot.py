@@ -33,10 +33,6 @@ def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
 
-    # Print the response to check
-    if verbose:
-        print(response)
-
     # Export the response
     try:
         response_json = response.json()  # Parse JSON response
@@ -381,6 +377,8 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
 
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
+    elif response_json["error"] == "errUserNotAuthorized":
+        pass
     else:
         raise RuntimeError("Unable to verify quest completion")
 
@@ -599,11 +597,35 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
             
             if current_resource_amount >= 0.5*max_resource_amount:
                 collect = True
-
+                
     if collect:
-        for hideout_room_id in ids_to_collect:
-            response = collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            time.sleep(cooldown)
+        # Retry logic for collecting hideout rooms in case of errUserNotAuthorized
+        retries = 0
+        max_retries = 3
+        while retries < max_retries:
+            all_collected = True  # Flag to track if all rooms were successfully collected
+            
+            for hideout_room_id in ids_to_collect:
+                response = collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+
+                # Check if the error is "errUserNotAuthorized"
+                if response.get("error") == "errUserNotAuthorized":
+                    print("User not authorized. Requesting user info and retrying...")
+                    request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                    retries += 1
+                    all_collected = False
+                    time.sleep(cooldown)  # Give some time before retrying
+                    break  # Exit the loop to retry collecting again
+
+                time.sleep(cooldown)  # Sleep after successful collection
+
+            # If no error was encountered, we can break out of the retry loop
+            if all_collected:
+                print("All hideout rooms collected successfully.")
+                break
+
+        else:
+            raise RuntimeError("Max retries reached. Could not collect all hideout rooms.")
     else:
         print("No hideout rooms ready for collection.")
 
@@ -658,6 +680,8 @@ def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoL
 
         with open(autoLoginUser_file, 'w') as file:
             json.dump(merge_json(data, response_json), file, indent=4)
+    elif response_json["error"] == "errUserNotAuthorized":
+        pass
     else:
         raise RuntimeError(f"Unable to collect hideout room {hideout_room_id}")
 
