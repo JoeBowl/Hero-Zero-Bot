@@ -4,11 +4,7 @@ import sys
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
-
-from src.tasks import Task
-import src.tasks as tasks
 import src.bot as bot
-from functools import partial
 import datetime
 import time
 
@@ -37,8 +33,8 @@ if __name__ == "__main__":
         ('story_dungeon_item', None): 2e3,
         ("repeat_story_dungeon_index", None): 2e3,
         ('herobook_item_epic', None): 1e5,
-        ("herobook_item_rare", None): 1e4,
-        ("herobook_item_common", None): 1e4,
+        ("herobook_item_rare", None): 2e3,
+        ("herobook_item_common", None): 2e3,
         ("slotmachine_jetons", None): 1e3,
         # ("event_item", 'sun_moon_stars_season_arc_event_2024_item'): 2e3,
         # ("event_item", "server_launch_blooming_nature_lotus"): 2e3,
@@ -69,36 +65,36 @@ if __name__ == "__main__":
         }
     }
 
-    tasks = [
-        Task("Quest", 
-             partial(tasks.do_quest,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)),
-        
-        Task("CollectHideoutRooms", 
-             partial(tasks.do_collect_hideout_rooms,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True)),
-    ]
+    # Login
+    bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
 
-    last_run_date = None
-    
     while True:
-        now = datetime.datetime.now()
+        active_quest = bot.get_active_quest_id(autoLoginUser_filepath)
+
+        if active_quest == 0:
+            best_quest = bot.get_best_quest(autoLoginUser_filepath, REWARD_WEIGHTS, check_energy=False, verbose=True)
+            
+            current_quest_energy = bot.get_current_energy(autoLoginUser_filepath)
+            print("quest_energy:", current_quest_energy)
+            # break
         
-        # Login
-        if last_run_date is None or last_run_date < now.date():
-            print("Logging in")
-            bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
-            last_run_date = now.date()
+            # Check if best_quest is valid
+            if not best_quest or best_quest["id"] is None:
+                print("No valid quest found. Breaking loop.")
+                break
+            elif best_quest["energy_cost"] > current_quest_energy:
+                response = bot.buy_quest_energy(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, CONSTANTS, log_filepath=log_filepath)
 
-        next_task = min(tasks, key=lambda t: t.next_available_time)
-
-        if next_task.is_available():
-            next_task.run()
-        else:
-            # Sleep until the next task is ready
-            wait_time = (next_task.next_available_time - now).total_seconds()
+            # Start a quest
+            response = bot.start_quest(best_quest, defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath)
+            
+            wait_time = best_quest['duration'] + COOLDOWN
             finish_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
-            minutes = int(wait_time // 60)
-            seconds = int(wait_time % 60)
-            print(f"Waiting {wait_time // 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
-            time.sleep(wait_time)
+            print(f"Waiting {wait_time / 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
+            time.sleep(best_quest['duration'] + COOLDOWN)
+
+        # Check of quest completion
+        bot.check_for_quest_complete(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=60, log_filepath=log_filepath)
+        
+        # Claim quest rewards
+        response = bot.claim_quest_rewards(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath)

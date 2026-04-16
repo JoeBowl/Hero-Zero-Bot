@@ -35,39 +35,19 @@ def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False
 
     # Export the response
     try:
-        response_json = response.json()  # Parse JSON response
-        
+        response_json = response.json()
         if not response_json['error']:
-            # Save the JSON response
             with open(autoLoginUser_file, "w") as json_file:
                 json.dump(response_json, json_file, indent=4)
                 print(f"Response saved to {autoLoginUser_file}")
         else:
             raise RuntimeError(f"Response error|request_user_info: {response_json['error']}")
+            
     except ValueError:
-        # Save raw text with .txt suffix
         with open(autoLoginUser_file + ".txt", "w") as txt_file:
             txt_file.write(response.text)
 
-        raise RuntimeError(f"Response error|request_user_info: Response is not in JSON format.")
-
-def generate_auth(action, user_id):
-    # The salt string
-    salt = "GN1al351"
-    
-    # Combine action, salt, and user_id
-    combined_string = action + salt + str(user_id)
-    
-    # Generate the MD5 hash of the combined string
-    auth = hashlib.md5(combined_string.encode('utf-8')).hexdigest()
-    
-    return auth
-
-def get_server_time(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["server_time"]
+        raise RuntimeError("Response error|request_user_info: Response is not in JSON format.")
 
 def get_current_energy(autoLoginUser_file):
     with open(autoLoginUser_file, 'r') as file:
@@ -80,24 +60,6 @@ def get_active_quest_id(autoLoginUser_file):
         data = json.load(file)
 
     return data["data"]["character"]["active_quest_id"]
-
-def get_quest_energy_refilled_today(autoLoginUser_file): 
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["character"]["quest_energy_refill_amount_today"]
-
-def get_game_currency(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["character"]["game_currency"]
-
-def get_player_level(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["character"]["level"]
 
 def get_best_quest(autoLoginUser_file, weights, check_energy=True, verbose=False):
     with open(autoLoginUser_file, 'r') as file:
@@ -224,91 +186,23 @@ def get_upgrade_value(item_id, inventory, items):
     equipped_score = get_item_score(equipped_item) if equipped_item else 0
     return reward_score - equipped_score
 
-def parse_request_with_body(request_txt, body_txt):
-    # Parsing the request headers (same as before)
-    lines = request_txt.strip().splitlines()
-    method, path, protocol = lines[0].split(" ")
-
-    headers = {}
-    for line in lines[1:]:
-        if ": " in line:
-            key, value = line.split(": ", 1)
-            headers[key] = value
-
-    # Parsing the body (form data) from the body.txt file
-    body = {}
-    with open(body_txt, 'r') as f:
-        body_data = f.read().strip().splitlines()
-
-    for line in body_data:
-        if '=' in line:
-            key, value = line.split('=', 1)
-            body[key] = urllib.parse.unquote(value)  # decode URL-encoded characters if needed
-
-    # Combine everything into a final dictionary
-    return {
-        "method": method,
-        "path": path,
-        "protocol": protocol,
-        "headers": headers,
-        "body": body
-    }
-
 def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-    DEFAULT_HEADERS["Priority"] = "u=0"
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["quest_id"] = str(best_quest['id'])
-    DEFAULT_BODY["action"] = "startQuest"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-    
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print(f"Quest {best_quest['id']} launched successfully. "
-              f"XP: {best_quest['rewards']}, "
-              f"Energy: {best_quest['duration']/60}")
-        
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError(f"Unable to start quest {best_quest["id"]}")
-
-    return response_json
+    response = perform_request(
+        "startQuest",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "quest_id": str(best_quest["id"])
+        },
+        success_msg=(
+            f"Quest {best_quest['id']} launched successfully. "
+            f"XP: {best_quest['rewards']}, "
+            f"Energy: {best_quest['duration']/60}"
+        ) if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=None, verbose=False):
     start_time = time.time()
@@ -330,119 +224,40 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
     return response
 
 def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["quest_id"] = "0"
-    DEFAULT_BODY["action"] = "checkForQuestComplete"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-        
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-        
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("Quest completed successfully verified")
-
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    elif response_json["error"] == "errUserNotAuthorized":
-        pass
-    else:
-        raise RuntimeError("Unable to verify quest completion")
-
-    return response_json
+    response = perform_request(
+        "checkForQuestComplete",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "quest_id": "0"
+        },
+        ignore_errors=["errUserNotAuthorized"],
+        success_msg="Quest completion verified" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-    DEFAULT_HEADERS["TE"] = "trailers"
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["discard_item"] = "false"
-    DEFAULT_BODY["refresh_inventory"] = "true"
-    DEFAULT_BODY["action"] = "claimQuestRewards"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-            
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("Quest reward successfully collected")
-
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError("Unable to collect quest reward")
-
-    return response_json
+    response = perform_request(
+        "claimQuestRewards",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "discard_item": "false",
+            "refresh_inventory": "true"
+        },
+    #     headers_override={"TE": "trailers"},
+        success_msg="Quest reward successfully collected" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log_filepath=None, verbose=False):
-    player_level = get_player_level(autoLoginUser_file)
-    energy_refilled_today = get_quest_energy_refilled_today(autoLoginUser_file)
-    game_currency = get_game_currency(autoLoginUser_file)
+    player_level = get_json_value(autoLoginUser_file, "data.character.level")
+    energy_refilled_today = get_json_value(autoLoginUser_file, "data.character.quest_energy_refill_amount_today")
+    game_currency = get_json_value(autoLoginUser_file, "data.character.game_currency")
     energy_refill_cost = get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS)
     print(
         f"Trying to buy energy!\n"
@@ -464,120 +279,38 @@ def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log
     return response
 
 def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["use_premium"] = "false"
-    DEFAULT_BODY["action"] = "buyQuestEnergy"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-            
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("Quest energy purchased successfully")
-    
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError("Unable to purchase quest energy")
-
-    return response_json
-
-def game_currency_per_time(level, const):
-    c = const["coins_per_time"]
-    return round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
+    response = perform_request(
+        "buyQuestEnergy",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "use_premium": "false"
+        },
+        success_msg="Quest energy purchased successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def get_energy_refill_cost(level, energy_refilled_today, const):
     tier = energy_refilled_today // const["energy_per_refill"]
     tier = min(tier, len(const["cost_factors"]) - 1)
 
-    base = game_currency_per_time(level, const)
+    c = const["coins_per_time"]
+    base = round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
+    
     return round(const["cost_factors"][tier] * base)
 
 def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["action"] = "claimFreeTreasureRevealItems"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-            
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("Free treasure reveal items claimed successfully")
-
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError("Unable to claim free treasure reveal items")
-
-    return response_json
+    response = perform_request(
+        "claimFreeTreasureRevealItems",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="Free treasure reveal items claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, collect=True, verbose=False):
     hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
@@ -632,168 +365,54 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
     return collect
 
 def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["hideout_room_id"] = str(hideout_room_id)
-    DEFAULT_BODY["collect"] = "true"
-    DEFAULT_BODY["action"] = "collectHideoutRoomActivityResult"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-            
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print(f"Hideout room {hideout_room_id} successfully collected")
-        
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    elif response_json["error"] == "errUserNotAuthorized":
-        pass
-    else:
-        raise RuntimeError(f"Unable to collect hideout room {hideout_room_id}")
-
-    return response_json
+    response = perform_request(
+        "collectHideoutRoomActivityResult", 
+        request_file, 
+        body_file, 
+        autoLoginUser_file, 
+        custom_body={
+            "hideout_room_id": str(hideout_room_id),
+            "collect": "true"
+        },
+        success_msg=f"Hideout room {hideout_room_id} successfully collected" if verbose else None,
+        ignore_errors=["errUserNotAuthorized"], 
+        log_filepath=log_filepath,
+    )
+    return response
 
 def get_user_vouchers_request(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
-
     parsed_request = parse_request_with_body(raw_request, body_file)
 
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["stream_type"] = "v"
-    DEFAULT_BODY["stream_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["start_message_id"] = "0"
-    DEFAULT_BODY["action"] = "getStreamMessages"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-    
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("User vouchers retrieved successfully")
-    
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-    
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError("Unable to retrieve user vouchers")
-
-    return response_json
+    response = perform_request(
+        "getStreamMessages",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "stream_type": "v",
+            "stream_id": parsed_request["body"]["existing_user_id"],
+            "start_message_id": "0"
+        },
+        success_msg="User vouchers retrieved successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
 
 def redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    with open(request_file, 'r') as f:
-        raw_request = f.read()
-
-    parsed_request = parse_request_with_body(raw_request, body_file)
-
-    # Build the URL
-    host = parsed_request["headers"]["Host"]
-    path = parsed_request["path"]
-    URL = f"https://{host}{path}"
-
-    # Get the headers
-    DEFAULT_HEADERS = parsed_request["headers"]
-
-    # Get the body
-    DEFAULT_BODY = {}
-    DEFAULT_BODY["code"] = str(voucher_code)
-    DEFAULT_BODY["action"] = "redeemVoucher"
-    DEFAULT_BODY["user_id"] = parsed_request["body"]["existing_user_id"]
-    DEFAULT_BODY["user_session_id"] = parsed_request["body"]["existing_session_id"]
-    DEFAULT_BODY["client_version"] = parsed_request["body"]["client_version"]
-    DEFAULT_BODY["build_number"] = parsed_request["body"]["build_number"]
-    DEFAULT_BODY["auth"] = generate_auth(DEFAULT_BODY["action"], DEFAULT_BODY["user_id"])
-    DEFAULT_BODY["rct"] = "2"
-    DEFAULT_BODY["keep_active"] = parsed_request["body"]["keep_active"]
-    DEFAULT_BODY["device_id"] = parsed_request["body"]["device_id"]
-    DEFAULT_BODY["device_type"] = parsed_request["body"]["device_type"]
-
-    # Convert the body to x-www-form-urlencoded format
-    body = urllib.parse.urlencode(DEFAULT_BODY)
-
-    DEFAULT_HEADERS["Content-Length"] = str(len(body))
-
-    # Send the POST request
-    response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
-            
-    if log_filepath:
-        log_response(DEFAULT_BODY["action"], response, log_filepath)
-
-    response_json = response.json()
-    if response_json["error"] == "":
-        print("Voucher redeemed successfully")
-    
-        with open(autoLoginUser_file, 'r') as file:
-            data = json.load(file)
-    
-        with open(autoLoginUser_file, 'w') as file:
-            json.dump(merge_json(data, response_json), file, indent=4)
-    else:
-        raise RuntimeError("Unable to redeem voucher")
-
-    return response_json
+    response = perform_request(
+        "redeemVoucher",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "code": str(voucher_code)
+        },
+        success_msg="Voucher redeemed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
     
 def get_energy_voucher(autoLoginUser_file):
     user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
@@ -877,23 +496,6 @@ def get_json_value(filepath, path, default=None):
     except (KeyError, IndexError, TypeError):
         return default
 
-
-def log_response(action, response, log_file='quest_log.txt'):
-    # Get the current timestamp
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    # Prepare the log entry
-    log_entry = {
-        'timestamp': timestamp,
-        'action': action,
-        'status_code': response.status_code,
-        'response_json': response.json()
-    }
-
-    # Write the log entry to the file
-    with open(log_file, 'a') as log:
-        log.write(json.dumps(log_entry) + '\n')
-
 def merge_json(json1, json2, path=None):
     if path is None:
         path = []
@@ -919,3 +521,131 @@ def merge_json(json1, json2, path=None):
     # Otherwise → overwrite value
     else:
         return json2
+
+def log_response(action, response, log_file='src/log.txt'):
+    # Get the current timestamp
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Prepare the log entry
+    log_entry = {
+        'timestamp': timestamp,
+        'action': action,
+        'status_code': response.status_code,
+        'response_json': response.json()
+    }
+
+    # Write the log entry to the file
+    with open(log_file, 'a') as log:
+        log.write(json.dumps(log_entry) + '\n')
+        
+def generate_auth(action, user_id):
+    # The salt string
+    salt = "GN1al351"
+    
+    # Combine action, salt, and user_id
+    combined_string = action + salt + str(user_id)
+    
+    # Generate the MD5 hash of the combined string
+    auth = hashlib.md5(combined_string.encode('utf-8')).hexdigest()
+    
+    return auth
+
+def parse_request_with_body(request_txt, body_txt):
+    # Parsing the request headers (same as before)
+    lines = request_txt.strip().splitlines()
+    method, path, protocol = lines[0].split(" ")
+
+    headers = {}
+    for line in lines[1:]:
+        if ": " in line:
+            key, value = line.split(": ", 1)
+            headers[key] = value
+
+    # Parsing the body (form data) from the body.txt file
+    body = {}
+    with open(body_txt, 'r') as f:
+        body_data = f.read().strip().splitlines()
+
+    for line in body_data:
+        if '=' in line:
+            key, value = line.split('=', 1)
+            body[key] = urllib.parse.unquote(value)  # decode URL-encoded characters if needed
+
+    # Combine everything into a final dictionary
+    return {
+        "method": method,
+        "path": path,
+        "protocol": protocol,
+        "headers": headers,
+        "body": body
+    }
+        
+def perform_request(action, request_file, body_file, autoLoginUser_file, custom_body=None, headers_override=None, success_msg=None, ignore_errors=None, log_filepath=None):
+    with open(request_file, 'r') as f:
+        raw_request = f.read()
+
+    parsed_request = parse_request_with_body(raw_request, body_file)
+
+    # Build the URL
+    host = parsed_request["headers"]["Host"]
+    path = parsed_request["path"]
+    url = f"https://{host}{path}"
+
+    # Get the headers
+    headers = parsed_request["headers"].copy()
+    if headers_override:
+        headers.update(headers_override)
+
+    # Base body
+    body = {
+        "action": action,
+        "user_id": parsed_request["body"]["existing_user_id"],
+        "user_session_id": parsed_request["body"]["existing_session_id"],
+        "client_version": parsed_request["body"]["client_version"],
+        "build_number": parsed_request["body"]["build_number"],
+        "auth": generate_auth(action, parsed_request["body"]["existing_user_id"]),
+        "rct": "2",
+        "keep_active": parsed_request["body"]["keep_active"],
+        "device_id": parsed_request["body"]["device_id"],
+        "device_type": parsed_request["body"]["device_type"],
+    }
+
+    # Merge custom fields
+    if custom_body:
+        body.update(custom_body)
+
+    encoded_body = urllib.parse.urlencode(body)
+    
+    # Commented because I've read that requests handles this automatically, so no need to set it up manually
+    # headers["Content-Length"] = str(len(encoded_body))
+    headers.pop("Content-Length", None)
+    headers.pop("Accept-Encoding", None)
+    headers.pop("Connection", None)
+    
+    # Send the POST request
+    response = requests.post(url, headers=headers, data=encoded_body)
+
+    if log_filepath:
+        log_response(action, response, log_filepath)
+
+    try:
+        response_json = response.json()
+    except ValueError:
+        raise RuntimeError(f"{action} returned non-JSON response: {response.text[:200]}")
+
+    ignore_errors = set(ignore_errors or [])
+    if response_json["error"] == "":
+        if success_msg:
+            print(success_msg)
+
+        with open(autoLoginUser_file, 'r') as f:
+            data = json.load(f)
+
+        with open(autoLoginUser_file, 'w') as f:
+            json.dump(merge_json(data, response_json), f, indent=4)
+    elif response_json["error"] in ignore_errors:
+        pass
+    else:
+        raise RuntimeError(f"{action} failed: {response_json['error']}")
+
+    return response_json
