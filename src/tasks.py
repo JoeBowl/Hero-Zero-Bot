@@ -62,15 +62,35 @@ def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldo
     return 3600
 
 def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    league_fight_count = bot.get_json_value(autoLoginUser_file, "data.character.league_fight_count")
+    if league_fight_count >= 24:
+        if verbose:
+            print("League fight limit reached")
+        now = datetime.datetime.now()
+        tomorrow = now.date() + datetime.timedelta(days=1)
+        reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+        return (reset_time - now).total_seconds()
+    
+    MAX_RETRIES = 2
+    for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
+        response = response = bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+        if response.get("error") != "errUserNotAuthorized":
+            break
+    
+        if attempt < MAX_RETRIES:
+            bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+        else:
+            raise Exception("do_duel: Authorization failed after 3 retries")
     
     while True:
         active_league_fight_id = bot.get_json_value(autoLoginUser_file, "data.character.active_league_fight_id")
         
         if active_league_fight_id == 0:
             league_stamina = bot.get_json_value(autoLoginUser_file, "data.character.league_stamina")
-    
-            if league_stamina < 20:
+            league_stamina_cost = bot.get_json_value(autoLoginUser_file, "data.character.league_stamina_cost")
+            
+            if league_stamina < league_stamina_cost:
                 if verbose:
                     print("Not enough league stamina")
                 break
@@ -121,15 +141,26 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=Non
     return 3600*2
 
 def do_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-    
     while True:
+        MAX_RETRIES = 2
+        for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
+            response = bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+            if response.get("error") != "errUserNotAuthorized":
+                break
+        
+            if attempt < MAX_RETRIES:
+                bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+            else:
+                raise Exception("do_duel: Authorization failed after 3 retries")
+        
         active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
         
         if active_duel_id == 0:
             duel_stamina = bot.get_json_value(autoLoginUser_file, "data.character.duel_stamina")
-    
-            if duel_stamina < 20:
+            duel_stamina_cost = bot.get_json_value(autoLoginUser_file, "data.character.duel_stamina_cost")
+            
+            if duel_stamina < duel_stamina_cost:
                 if verbose:
                     print("Not enough duel stamina")
                 break

@@ -293,8 +293,8 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
             time.sleep(cooldown)
         elif response['error'] == "errUserNotAuthorized":
             print(f"User not authorized. Refreshing user info and retrying in {cooldown} seconds...")
-            request_user_info(request_file, body_file, autoLoginUser_file, verbose=False)
             time.sleep(cooldown)
+            request_user_info(request_file, body_file, autoLoginUser_file, verbose=False)
         else:
             raise RuntimeError(f"Unexpected error: {response['error']}")
     
@@ -541,6 +541,7 @@ def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepa
         body_file,
         autoLoginUser_file,
         success_msg="League opponents retrieved successfully" if verbose else None,
+        ignore_errors=["errUserNotAuthorized"],
         log_filepath=log_filepath
     )
     return response
@@ -593,6 +594,7 @@ def get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath
         body_file,
         autoLoginUser_file,
         success_msg="Duel opponents retrieved successfully" if verbose else None,
+        ignore_errors=["errUserNotAuthorized"],
         log_filepath=log_filepath
     )
     return response
