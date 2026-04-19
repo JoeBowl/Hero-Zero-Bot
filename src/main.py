@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
         # Upgrade system
         ("item", None): 1e3,
+        ("new_item", None): 1e4,
         
         # Quest type multipliers
         ("fight", None): 0.9,
@@ -96,7 +97,7 @@ if __name__ == "__main__":
             print("Logging in")
             bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
             last_run_date = now.date()
-
+                
         next_task = min(task_list, key=lambda t: t.next_available_time)
 
         if next_task.is_available():

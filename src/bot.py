@@ -153,8 +153,7 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
     }
 
     if verbose:
-        print(f"{'ID':<8} {'Dur(s)':<8} {'Coins':<8} {'XP':<8} "
-              f"{'Score':<15} {'Rewards':<15}")
+        print(f"{'ID':<8} {'Dur(s)':<8} {'Score':<8} {'Rewards':<15}")
         print("-" * 85)
 
     # Loop through each quest in the JSON data
@@ -168,10 +167,13 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
 
         score = 0
         for key, value in rewards.items():            
-            # Compute score for item upgrade
+            # Compute score for item upgrade and new item
             if key == "item":
                 upgrade_value = get_upgrade_value(value, inventory, items)
                 score += max(0, upgrade_value) * weights.get(("item", None), 0)
+                
+                if is_new_item(value, items, autoLoginUser_file):
+                    score += weights[("new_item", None)]
                 continue
             
             # Compute score for stackable rewards (xp, coins...)
@@ -205,8 +207,7 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
             score = score * weights[("fight", None)]
 
         if verbose:
-            print(f"{quest_id:<8} {duration:<8.0f} {rewards.get("coins", 0):<8} {rewards.get("xp", 0):<8} "
-                  f"{score:<15.2f} {rewards}")
+            print(f"{quest_id:<8} {duration:<8.0f} {score:<15.2f} {rewards}")
         
         # Skip if not enough energy
         if check_energy:
@@ -222,6 +223,27 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
         print(f"Best quest: {best_quest['id']} | Duration: {best_quest['duration']/60:.1f} min | Rewards: {best_quest['rewards']}")
 
     return best_quest
+
+def is_new_item(value, items, autoLoginUser_file):
+    item_collections = get_json_value(
+        autoLoginUser_file,
+        "data.current_item_pattern_values"
+    )
+    
+    identifier = next(
+        (item["identifier"] for item in items if item["id"] == value),
+        None
+    )
+    
+    if identifier is None:
+        raise ValueError(f"is_new_item: Item with id {value} not found in items")
+    
+    found = any(
+        identifier in collection["collected_items"]
+        for collection in item_collections.values()
+    )
+    
+    return not found
 
 def get_item_score(item):
     return (
