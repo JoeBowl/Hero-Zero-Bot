@@ -192,8 +192,7 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
             # Unknown -> wait for further inspection
             if (key, value) not in weights and (key, None) not in weights:
                 raise RuntimeError(
-                    f"{quest_id:<8} {duration:<8.0f} {rewards.get('coins', 0):<8} "
-                    f"{rewards.get('xp', 0):<8} {score:<15.2f} {rewards}\n"
+                    f"{quest_id:<8} {duration:<8.0f} {score:<15.2f} {rewards}\n"
                     f"Reward weight not defined for key={key}, value={value}"
                 )
 
@@ -368,7 +367,8 @@ def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log
         return {"data": "", "error": "refillLimitReached"}
     
     if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
-        raise RuntimeError("Not enough currency to refill energy!")
+        print("Not enough currency to refill energy!")
+        return {"data": "", "error": "refillLimitReached"}
         
     response = buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_filepath, verbose)
     
