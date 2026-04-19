@@ -380,57 +380,55 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
     )
     return response
 
-def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, collect=True, verbose=False):
+def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
+    def is_collectible(room, collected_ids, target_ids):
+        return (
+            room.get("id") not in collected_ids
+            and room.get("identifier") in target_ids
+            and room.get("status") == 6
+        )
     hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
-    
-    rooms_to_collect = ["main_building", "stone_production", "glue_production"]
-    ids_to_collect = []
-
-    for hideout_room in hideout_rooms:
-        identifier = hideout_room.get("identifier")
-
-        if identifier in rooms_to_collect:
-            id = hideout_room.get("id")
-            ids_to_collect.append(id)
-
-            current_resource_amount = hideout_room["current_resource_amount"]
-            max_resource_amount = hideout_room["max_resource_amount"]
-            
-            if current_resource_amount >= 0.5*max_resource_amount:
-                collect = True
+    rooms_to_collect = {"main_building", "stone_production", "glue_production"}
+    collected_room_ids = set()
                 
-    if collect:
-        # Retry logic for collecting hideout rooms in case of errUserNotAuthorized
-        retries = 0
-        max_retries = 3
-        while retries < max_retries:
-            all_collected = True  # Flag to track if all rooms were successfully collected
-            
-            for hideout_room_id in ids_to_collect:
-                response = collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    # Retry logic for collecting hideout rooms in case of failure
+    retries = 0
+    max_retries = 2
+    while retries < max_retries:
+        hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
 
-                # Check if the error is "errUserNotAuthorized"
-                if response.get("error") == "errUserNotAuthorized":
-                    print("User not authorized. Requesting user info and retrying...")
-                    request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
-                    retries += 1
-                    all_collected = False
-                    time.sleep(cooldown)  # Give some time before retrying
-                    break  # Exit the loop to retry collecting again
+        for hideout_room in hideout_rooms:
+            room_id = hideout_room.get("id")
 
-                time.sleep(cooldown)  # Sleep after successful collection
+            if not is_collectible(hideout_room, collected_room_ids, rooms_to_collect):
+                continue
 
-            # If no error was encountered, we can break out of the retry loop
-            if all_collected:
-                print("All hideout rooms collected successfully.")
-                break
+            response = collect_hideout_room_request(room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
 
-        else:
-            raise RuntimeError("Max retries reached. Could not collect all hideout rooms.")
-    else:
-        print("No hideout rooms ready for collection.")
+            error = response.get("error")
+            if error == "errUserNotAuthorized":
+                print(f"Error '{error}' for room {room_id}. Refreshing user info...")
+                request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+            elif error == "errCollectActivityResultInvalidStatus":
+                print(f"Error '{error}' for room {room_id}. Refreshing state...")
+                request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                break  # re-scan fresh snapshot next iteration
+            else:
+                collected_room_ids.add(room_id)
 
-    return collect
+            time.sleep(cooldown)  # Sleep after successful collection
+        
+        remainings = any(is_collectible(room, collected_room_ids, rooms_to_collect) for room in hideout_rooms)
+        if not remainings:
+            break
+
+        retries += 1
+    
+    if remainings:
+        raise RuntimeError("Max retries reached. Could not collect all hideout rooms.")
+    
+    if verbose:
+        print("All hideout rooms collected successfully.")
 
 def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
@@ -443,7 +441,7 @@ def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoL
             "collect": "true"
         },
         success_msg=f"Hideout room {hideout_room_id} successfully collected" if verbose else None,
-        ignore_errors=["errUserNotAuthorized"], 
+        ignore_errors=["errUserNotAuthorized", "errCollectActivityResultInvalidStatus"], 
         log_filepath=log_filepath,
     )
     return response
