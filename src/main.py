@@ -68,7 +68,7 @@ if __name__ == "__main__":
             minutes = int(wait_time // 60)
             seconds = int(wait_time % 60)
             
-            print("Task schedule:")
+            print("\nTask schedule:")
             for task in sorted(task_list, key=lambda t: t.next_available_time):
                 ready_in = (task.next_available_time - now).total_seconds()
                 

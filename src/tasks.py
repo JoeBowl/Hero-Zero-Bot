@@ -22,7 +22,7 @@ class Task:
         print(f"\n[{self.name}] Running at {datetime.datetime.now().strftime('%H:%M:%S')}")
         wait_time = self.function_to_run()
         self.next_available_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
-        print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}\n")
+        print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}")
         return wait_time
 
 def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=5, log_filepath=None, verbose=False):
