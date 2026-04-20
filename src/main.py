@@ -5,6 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
 
+import src.config as config
 import src.tasks as tasks
 import src.bot as bot
 from functools import partial
@@ -16,76 +17,34 @@ if __name__ == "__main__":
     defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
-    COOLDOWN = 5
+    config_filepath = f"{BASE_DIR}/src/config.py"
 
-    REWARD_WEIGHTS = {
-        # Standard resources
-        ("xp", None): 1.0,
-        ("coins", None): 0.0,
-        ("premium", None): 1e10,
-
-        # Upgrade system
-        ("item", None): 1e3,
-        ("new_item", None): 1e4,
-        
-        # Quest type multipliers
-        ("fight", None): 0.9,
-        ("timer", None): 1.0,
-
-        # Event-specific rewards
-        ("dungeon_key", None): 2e3,
-        ('story_dungeon_item', None): 2e3,
-        ("repeat_story_dungeon_index", None): 2e3,
-        ('herobook_item_epic', None): 1e5,
-        ("herobook_item_rare", None): 1e4,
-        ("herobook_item_common", None): 1e4,
-        ("slotmachine_jetons", None): 1e3,
-        # ("event_item", 'sun_moon_stars_season_arc_event_2024_item'): 2e3,
-        # ("event_item", "server_launch_blooming_nature_lotus"): 2e3,
-        # ("event_item", 'easter_eggs'): 2e3,
-        # ("event_item", 'easter_bunnies'): 2e3,
-        ("event_item", None): 2e3,
-    }
+    COOLDOWN = config.COOLDOWN
+    REWARD_WEIGHTS = config.REWARD_WEIGHTS
+    CONSTANTS = config.CONSTANTS
     
-    # Constants from the game files that are needed for the buy_quest_energy function
-    CONSTANTS = {
-        "energy_per_refill": 50,
-        "quest_max_refill_amount_per_day": 200,
-        "cost_factors": [
-            1800,
-            6300,
-            10800,
-            15300,
-            30600,
-            45900,
-            61200,
-            76500
-        ],
-        "coins_per_time": {
-            "base": 0.02,
-            "scale": 0.01,
-            "level_scale": 0.35,
-            "level_exp": 1.55
-        }
-    }
-
     task_list  = [
         tasks.Task("Quest", 
              partial(tasks.do_quest,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)),
+             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+             REWARD_WEIGHTS, CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
         
-        tasks.Task("CollectHideoutRooms", 
-             partial(tasks.do_collect_hideout_rooms,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, cooldown=0.75, log_filepath=log_filepath, verbose=True)),
-        
-        tasks.Task("LeagueDuel",
-            partial(tasks.do_league_duel,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)),
-    
         tasks.Task("Duel",
             partial(tasks.do_duel,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)),
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                log_filepath=log_filepath, verbose=True)) if config.do_duel else None,
+
+        tasks.Task("LeagueDuel",
+            partial(tasks.do_league_duel,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                log_filepath=log_filepath, verbose=True)) if config.do_league_duel else None,
+
+        tasks.Task("CollectHideoutRooms", 
+             partial(tasks.do_collect_hideout_rooms,
+             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+             cooldown=0.75, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
     ]
+    task_list = [t for t in task_list if t is not None]
 
     last_run_date = None
     

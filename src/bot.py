@@ -135,7 +135,7 @@ def get_duel_opponents_in_my_guild(autoLoginUser_file):
 
     return list(opponents_names & guild_members_names)
 
-def get_best_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=False, verbose=False):
+def get_best_quest(autoLoginUser_file, weights, quest_type = "data.quests", max_energy=1e10, verbose=False):
     inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
     
@@ -151,7 +151,7 @@ def get_best_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=Fa
         print("-" * 85)
 
     # Loop through each quest in the JSON data
-    for quest in get_json_value(autoLoginUser_file, "data.quests"):
+    for quest in get_json_value(autoLoginUser_file, quest_type):
         quest_id = quest["id"]
         quest_cost = quest["energy_cost"]
         rewards = json.loads(quest["rewards"])
@@ -201,12 +201,6 @@ def get_best_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=Fa
 
         if verbose:
             print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")
-        
-        # Skip if not enough energy
-        if check_energy:
-            current_quest_energy = get_current_energy(autoLoginUser_file)
-            if quest["energy_cost"] > current_quest_energy:
-                continue
         
         if quest["energy_cost"] > max_energy:
             continue
