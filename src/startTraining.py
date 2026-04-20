@@ -4,47 +4,88 @@ import sys
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(BASE_DIR))
 
+import datetime
 import json
-from src.bot import perform_request, get_json_value, get_upgrade_value
+import time
+from src.bot import perform_request, get_json_value, get_upgrade_value, is_new_item
+import src.bot as bot
 
-def def_is_training_available(autoLoginUser_file):
-    if get_json_value(autoLoginUser_file, "data.character.training_pool") == "":
-        return False
-    else:
-        return True
-
-def get_current_training_energy(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["character"]["training_energy"]
-
-def get_active_training_id(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-
-    return data["data"]["character"]["active_quest_id"]
-
-def get_traing_time_left(autoLoginUser_file):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
-        
-    server_time = data["data"]["server_time"]
-    training_end_time = data["data"]["training"]["ts_end"]
-    
-    return training_end_time - server_time
-
-def start_training(training_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+def start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
         action="startTraining",
         request_file=request_file,
         body_file=body_file,
         autoLoginUser_file=autoLoginUser_file,
         custom_body={
-            "training_id": str(training_id),
+            "training_id": str(best_training["id"]),
             "refresh_trainings": "true",
         },
         success_msg="Training started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def start_training_quest(training_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="startTrainingQuest",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "training_quest_id": str(training_quest["id"]),
+            "training_ids": "0",
+        },
+        success_msg="Training quest started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="claimTrainingQuestRewards",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="Training quest rewards claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_training_star(request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="claimTrainingStar",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "discard_item": "false",
+        },
+        success_msg="Training star claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="finishTraining",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="Training finished successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="syncGame",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "force_sync": "true" if force_sync else "false",
+        },
+        success_msg="Game synced successfully" if verbose else None,
         log_filepath=log_filepath
     )
     return response
@@ -64,7 +105,7 @@ def training_rewards(training):
 
     return total
 
-def get_best_training(autoLoginUser_file, weights, verbose=False):
+def get_best_training(autoLoginUser_file, weights, check_energy=False, verbose=False):
     with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
     
@@ -75,7 +116,8 @@ def get_best_training(autoLoginUser_file, weights, verbose=False):
         "id": None,
         "duration": 0,
         "rewards": "{\"coins\":0,\"xp\":0}",
-        "score": 0
+        "score": 0,
+        "energy_cost": 999
     }
 
     if verbose:
@@ -97,6 +139,9 @@ def get_best_training(autoLoginUser_file, weights, verbose=False):
             if key == "item":
                 upgrade_value = get_upgrade_value(value, inventory, items)
                 score += max(0, upgrade_value) * weights.get(("item", None), 0)
+                
+                if is_new_item(value, items, autoLoginUser_file):
+                    score += weights[("new_item", None)]
                 continue
             
             # Compute score for stackable rewards (xp, coins...)
@@ -126,9 +171,10 @@ def get_best_training(autoLoginUser_file, weights, verbose=False):
             print(f"{training_id:<8} {training_cost:<8.0f} {score:<15.2f} {rewards}")
             
         # Skip if not enough energy
-        training_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
-        if training_cost > training_energy:
-            continue
+        if check_energy:
+            training_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
+            if training_cost > training_energy:
+                continue
         
         if score > best_training["score"]:
             best_training = training.copy()
@@ -138,17 +184,157 @@ def get_best_training(autoLoginUser_file, weights, verbose=False):
         print(f"Best Training: {best_training['id']} | Cost: {best_training['training_cost']} energy | Rewards: {training_rewards(best_training)}")
         
     return best_training
-        
-def do_training(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    trainings = get_json_value(autoLoginUser_file, "data.trainings")
-    training_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
-    
-    print(training_energy)
-    
-    for training in trainings:
-        print(training)
-        training_rewards(training)
 
+def get_best_training_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=False, verbose=False):
+    inventory = get_json_value(autoLoginUser_file, "data.inventory")
+    items = get_json_value(autoLoginUser_file, "data.items")
+    
+    best_quest = {
+        "id": None,
+        "energy_cost": 999,
+        "rewards": "{\"coins\":0,\"xp\":0}",
+        "score": 0
+    }
+
+    if verbose:
+        print(f"{'ID':<8} {'Cost':<8} {'Score':<15} {'Rewards':<15}")
+        print("-" * 85)
+        
+    # Loop through each quest in the JSON data
+    for quest in get_json_value(autoLoginUser_file, "data.training_quests"):
+        quest_id = quest["id"]
+        quest_cost = quest["energy_cost"]
+        rewards = json.loads(quest["rewards"])
+        
+        if quest_cost == 0:
+            quest_cost = 1e-6
+            
+        score = 0
+        for key, value in rewards.items():            
+            # Compute score for item upgrade and new item
+            if key == "item":
+                upgrade_value = get_upgrade_value(value, inventory, items)
+                score += max(0, upgrade_value) * weights.get(("item", None), 0)
+                
+                if is_new_item(value, items, autoLoginUser_file):
+                    score += weights[("new_item", None)]
+                continue
+            
+            # Compute score for stackable rewards (xp, coins...)
+            if isinstance(value, (int, float)) or str(value).isdigit():
+                value = int(value)
+                weight_key = (key, None)
+                score += value * weights.get(weight_key, 0)
+
+            # Compute score for non-stackable rewards
+            elif isinstance(value, str):
+                if (key, value) in weights:
+                    score += weights[(key, value)]
+                elif (key, None) in weights:
+                    score += weights[(key, None)]
+
+            # Unknown -> wait for further inspection
+            if (key, value) not in weights and (key, None) not in weights:
+                raise RuntimeError(
+                    f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}\n"
+                    f"Reward weight not defined for key={key}, value={value}"
+                )
+                
+        # Weighted score
+        score = score / (quest_cost*60)
+        
+        # Add quest type multiplier
+        if quest["fight_difficulty"] == 0:
+            score = score * weights[("timer", None)]
+        else:
+            score = score * weights[("fight", None)]
+        
+        if verbose:
+            print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")
+            
+        # Skip if not enough energy
+        if check_energy:
+            current_quest_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
+            if quest["energy_cost"] > current_quest_energy:
+                continue
+            
+        if quest["energy_cost"] > max_energy:
+            continue
+        
+        if score > best_quest["score"]:
+            best_quest = quest.copy()
+            best_quest["score"] = score
+            
+    if verbose:
+        print(f"Best quest: {best_quest['id']} | Cost: {best_quest['energy_cost']} energy | Rewards: {best_quest['rewards']}")
+
+    return best_quest
+        
+def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log_filepath=None, verbose=False):
+    active_training = get_json_value(autoLoginUser_file, "data.character.active_training_id")
+    
+    if active_training == 0:
+        best_training = get_best_training(autoLoginUser_file, REWARD_WEIGHTS, verbose=verbose)
+        
+        training_count = get_json_value(autoLoginUser_file, "data.character.training_count")
+        print("training_count:", training_count)
+        
+        if not best_training or best_training["id"] is None:
+            raise RuntimeError("No valid training found. Breaking loop.")
+        elif best_training["training_cost"] > training_count:
+            raise RuntimeError("No energy. Breaking loop.")
+        
+        response = start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+    current_time = int(datetime.datetime.now().timestamp())
+    training_end_time = get_json_value(autoLoginUser_file, "data.training.ts_end")
+    
+    while current_time < training_end_time:
+        current_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
+        future_energy = (training_end_time - current_time)//60
+
+        total_progress = get_json_value(autoLoginUser_file, "data.training.needed_energy")
+        current_progress = get_json_value(autoLoginUser_file, "data.training.energy")
+        progress_needed = total_progress - current_progress
+        
+        total_energy = current_energy + future_energy
+        
+        local_weights = REWARD_WEIGHTS.copy()
+        print("energy:", total_energy, progress_needed)
+        if total_energy * 10 >= progress_needed:
+            local_weights[("fight", None)] = 0.1
+            local_weights[("timer", None)] = 1.0
+        else:
+            local_weights[("fight", None)] = 1.0
+            local_weights[("timer", None)] = 1.0
+        
+        best_training_quest = get_best_training_quest(autoLoginUser_file, local_weights, max_energy=total_energy, verbose=verbose)
+        print("training_quest_energy:", current_energy)
+        
+        if best_training_quest["energy_cost"] > current_energy:
+            time_left_for_quest = (best_training_quest["energy_cost"] - current_energy) * 60
+            time_left_for_training_end = training_end_time - current_time
+            print("time:", time_left_for_quest, time_left_for_training_end)
+            return min(time_left_for_quest, time_left_for_training_end)
+        
+        start_training_quest(best_training_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        training_stars_thresholds = [0.1, 0.4, 1.0]
+        reward_value = json.loads(best_training_quest["rewards"])["training_progress"]
+        print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
+        for t in training_stars_thresholds:
+            if current_progress < t * total_progress and current_progress + reward_value >= t * total_progress:
+                claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        if current_progress+reward_value > total_progress:
+            break
+    
+    finish_training(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    return 10
+    
 if __name__ == "__main__":
     defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
     defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
@@ -160,10 +346,14 @@ if __name__ == "__main__":
         ("xp", None): 1.0,
         ("coins", None): 0.0,
         ("premium", None): 1e10,
+        
+        # Trainings
         ("statPoints", None): 1e4,
+        ("training_progress", None): 1e3,
 
-        # Upgrade system
+        # Items
         ("item", None): 1e3,
+        ("new_item", None): 1e4,
         
         # Quest type multipliers
         ("fight", None): 0.1,
@@ -184,6 +374,11 @@ if __name__ == "__main__":
         ("event_item", None): 2e3,
     }
     
-    # do_training(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)
-    
-    get_best_training(autoLoginUser_filepath, REWARD_WEIGHTS, verbose=True)
+    bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
+    while True:
+        wait_time = do_training(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)
+        next_available_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
+        print(f"Task will be available again at {next_available_time.strftime('%H:%M:%S')}")
+        time.sleep(wait_time)
+        # sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        sync_game(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)

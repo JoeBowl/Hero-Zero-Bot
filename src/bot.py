@@ -59,9 +59,6 @@ def get_league_rewards(autoLoginUser_file, verbose=False):
     
     my_id = data["data"]["character"]["id"]
     
-    profile_a_stats = json.loads(data["data"]["battle"]["profile_a_stats"])
-    profile_b_stats = json.loads(data["data"]["battle"]["profile_b_stats"])
-    
     if my_id == data["data"]["league_fight"]["character_a_id"]:
         me = "a"
     elif my_id == data["data"]["league_fight"]["character_b_id"]:
@@ -138,32 +135,29 @@ def get_duel_opponents_in_my_guild(autoLoginUser_file):
 
     return list(opponents_names & guild_members_names)
 
-def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=False):
-    with open(autoLoginUser_file, 'r') as file:
-        data = json.load(file)
+def get_best_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=False, verbose=False):
+    inventory = get_json_value(autoLoginUser_file, "data.inventory")
+    items = get_json_value(autoLoginUser_file, "data.items")
     
-    inventory = data["data"]["inventory"]
-    items = data["data"]["items"]
-
     best_quest = {
         "id": None,
-        "duration": 0,
+        "energy_cost": 999,
         "rewards": "{\"coins\":0,\"xp\":0}",
         "score": 0
     }
 
     if verbose:
-        print(f"{'ID':<8} {'Dur(s)':<8} {'Score':<8} {'Rewards':<15}")
+        print(f"{'ID':<8} {'Cost':<8} {'Score':<15} {'Rewards':<15}")
         print("-" * 85)
 
     # Loop through each quest in the JSON data
-    for quest in data["data"]["quests"]:
+    for quest in get_json_value(autoLoginUser_file, "data.quests"):
         quest_id = quest["id"]
-        duration = quest["duration"]
+        quest_cost = quest["energy_cost"]
         rewards = json.loads(quest["rewards"])
 
-        if duration == 0:
-            duration = 1e-6
+        if quest_cost == 0:
+            quest_cost = 1e-6
 
         score = 0
         for key, value in rewards.items():            
@@ -192,34 +186,37 @@ def get_best_quest(autoLoginUser_file, weights, check_energy=False, verbose=Fals
             # Unknown -> wait for further inspection
             if (key, value) not in weights and (key, None) not in weights:
                 raise RuntimeError(
-                    f"{quest_id:<8} {duration:<8.0f} {score:<15.2f} {rewards}\n"
+                    f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}\n"
                     f"Reward weight not defined for key={key}, value={value}"
                 )
 
         # Weighted score
-        score = score / duration
+        score = score / (quest_cost*60)
 
         # Add quest type multiplier
-        if quest["fight_npc_identifier"] == "":
+        if quest["fight_difficulty"] == 0:
             score = score * weights[("timer", None)]
         else:
             score = score * weights[("fight", None)]
 
         if verbose:
-            print(f"{quest_id:<8} {duration:<8.0f} {score:<15.2f} {rewards}")
+            print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")
         
         # Skip if not enough energy
         if check_energy:
             current_quest_energy = get_current_energy(autoLoginUser_file)
             if quest["energy_cost"] > current_quest_energy:
                 continue
-
+        
+        if quest["energy_cost"] > max_energy:
+            continue
+        
         if score > best_quest["score"]:
             best_quest = quest.copy()
             best_quest["score"] = score
 
     if verbose:
-        print(f"Best quest: {best_quest['id']} | Duration: {best_quest['duration']/60:.1f} min | Rewards: {best_quest['rewards']}")
+        print(f"Best quest: {best_quest['id']} | Cost: {best_quest['energy_cost']} energy | Rewards: {best_quest['rewards']}")
 
     return best_quest
 
