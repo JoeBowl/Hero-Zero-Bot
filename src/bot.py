@@ -104,33 +104,35 @@ def get_duel_rewards(autoLoginUser_file, verbose=False):
     return winner == me, rewards
     
 def get_league_opponents_in_my_guild(autoLoginUser_file):
+    if get_json_value(autoLoginUser_file, "data.character.guild_id") == 0:
+        return []
+    
     with open(autoLoginUser_file, 'r') as f:
         data = json.load(f)
 
     opponents_names = {
-        opponent["opponent"]["name"]
-        for opponent in data["data"]["league_opponents"]
+        opponent["opponent"]["name"] for opponent in data["data"]["league_opponents"]
     }
 
     guild_members_names = {
-        member["name"]
-        for member in data["data"]["guild_members"]
+        member["name"] for member in data["data"]["guild_members"]
     }
 
     return list(opponents_names & guild_members_names)
 
 def get_duel_opponents_in_my_guild(autoLoginUser_file):
+    if get_json_value(autoLoginUser_file, "data.character.guild_id") == 0:
+        return []
+    
     with open(autoLoginUser_file, 'r') as f:
         data = json.load(f)
 
     opponents_names = {
-        opponent["name"]
-        for opponent in data["data"]["opponents"]
+        opponent["name"] for opponent in data["data"]["opponents"]
     }
 
     guild_members_names = {
-        member["name"]
-        for member in data["data"]["guild_members"]
+        member["name"] for member in data["data"]["guild_members"]
     }
 
     return list(opponents_names & guild_members_names)

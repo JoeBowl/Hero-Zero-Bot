@@ -67,5 +67,19 @@ if __name__ == "__main__":
             finish_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
             minutes = int(wait_time // 60)
             seconds = int(wait_time % 60)
-            print(f"Waiting {wait_time // 60:.0f} min (until {finish_time.strftime('%H:%M:%S')})")
+            
+            print("Task schedule:")
+            for task in sorted(task_list, key=lambda t: t.next_available_time):
+                ready_in = (task.next_available_time - now).total_seconds()
+                
+                if ready_in <= 0:
+                    status = "READY"
+                else:
+                    minutes = int(ready_in // 60)
+                    seconds = int(ready_in % 60)
+                    status = f"in {minutes}m {seconds}s"
+
+                ready_at = task.next_available_time.strftime('%H:%M:%S')
+                print(f"  - {task.name}: {status} (at {ready_at})")
+
             time.sleep(wait_time)

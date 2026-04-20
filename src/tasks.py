@@ -19,19 +19,17 @@ class Task:
         return datetime.datetime.now() >= self.next_available_time
 
     def run(self):
-        print(f"[{self.name}] Running at {datetime.datetime.now().strftime('%H:%M:%S')}")
+        print(f"\n[{self.name}] Running at {datetime.datetime.now().strftime('%H:%M:%S')}")
         wait_time = self.function_to_run()
         self.next_available_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)
-        print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}")
+        print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}\n")
         return wait_time
 
 def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=5, log_filepath=None, verbose=False):
-    active_quest = bot.get_active_quest_id(autoLoginUser_file)
+    active_quest_id = bot.get_active_quest_id(autoLoginUser_file)
 
-    if active_quest == 0:
-        best_quest = bot.get_best_quest(autoLoginUser_file, REWARD_WEIGHTS, check_energy=False, verbose=verbose)
-        # return 30
-        # raise RuntimeError("test")
+    if active_quest_id == 0:
+        best_quest = bot.get_best_quest(autoLoginUser_file, REWARD_WEIGHTS, verbose=verbose)
             
         current_quest_energy = bot.get_current_energy(autoLoginUser_file)
         print("quest_energy:", current_quest_energy)
@@ -52,9 +50,22 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
         wait_time = best_quest['duration'] + COOLDOWN
         return wait_time
     else:
-        bot.check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=log_filepath)
-        bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath)
-        return 5  # recheck in 5 secs
+        quests = bot.get_json_value(autoLoginUser_file, "data.quests")
+        quest = next((q for q in quests if q.get("id") == active_quest_id), None)
+
+        if quest is None:
+            raise RuntimeError("do_quest: Quest not found")
+        
+        ts_complete = quest.get("ts_complete")
+        ts_now = int(datetime.datetime.now().timestamp())
+
+        if ts_complete > ts_now:
+            print(f"Quest {active_quest_id} not ready yet")
+            return ts_complete - ts_now
+
+    bot.check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    return COOLDOWN  # recheck for a new quest in COOLDOWN secs
 
 def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
     bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
@@ -62,6 +73,15 @@ def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldo
     return 3600
 
 def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    league_group_id = bot.get_json_value(autoLoginUser_file, "data.character.league_group_id")
+    if league_group_id == 0:
+        if verbose:
+            print("League duels not unlocked yet!")
+        now = datetime.datetime.now()
+        tomorrow = now.date() + datetime.timedelta(days=1)
+        reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+        return (reset_time - now).total_seconds()
+
     league_fight_count = bot.get_json_value(autoLoginUser_file, "data.character.league_fight_count")
     if league_fight_count >= 24:
         if verbose:
@@ -70,18 +90,6 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=Non
         tomorrow = now.date() + datetime.timedelta(days=1)
         reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
         return (reset_time - now).total_seconds()
-    
-    MAX_RETRIES = 2
-    for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
-        response = response = bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-    
-        if response.get("error") != "errUserNotAuthorized":
-            break
-    
-        if attempt < MAX_RETRIES:
-            bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
-        else:
-            raise Exception("do_duel: Authorization failed after 3 retries")
     
     while True:
         active_league_fight_id = bot.get_json_value(autoLoginUser_file, "data.character.active_league_fight_id")
@@ -98,6 +106,19 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=Non
             candidates_weak = []
             candidates_same_team = []
             candidates_all = []
+            MAX_RETRIES = 2
+
+            for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
+                response = response = bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            
+                if response.get("error") != "errUserNotAuthorized":
+                    break
+            
+                if attempt < MAX_RETRIES:
+                    bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                else:
+                    raise Exception("do_duel: Authorization failed after 3 retries")
+                
             opponents_in_my_guild = bot.get_league_opponents_in_my_guild(autoLoginUser_file)
             my_stats = bot.get_stats(
                 bot.get_json_value(autoLoginUser_file, "data.character")

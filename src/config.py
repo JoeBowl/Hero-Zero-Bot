@@ -1,8 +1,8 @@
 COOLDOWN = 5
-do_quest = False
+do_quest = True
 do_duel = True
-do_league_duel = False
-do_collect_hideout_rooms = False
+do_league_duel = True
+do_collect_hideout_rooms = True
 
 REWARD_WEIGHTS = {
     # Standard resources

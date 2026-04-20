@@ -7,7 +7,7 @@ sys.path.append(str(BASE_DIR))
 import datetime
 import json
 import time
-from src.bot import perform_request, get_json_value, get_upgrade_value, is_new_item
+from src.bot import perform_request, get_json_value, get_upgrade_value, is_new_item, get_best_quest
 import src.bot as bot
 
 def training_rewards(training):
@@ -105,7 +105,7 @@ def get_best_training(autoLoginUser_file, weights, check_energy=False, verbose=F
         
     return best_training
 
-def get_best_training_quest(autoLoginUser_file, weights, max_energy=1e10, check_energy=False, verbose=False):
+def get_best_training_quest(autoLoginUser_file, weights, max_energy=1e10, verbose=False):
     inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
     
@@ -172,12 +172,6 @@ def get_best_training_quest(autoLoginUser_file, weights, max_energy=1e10, check_
         if verbose:
             print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")
             
-        # Skip if not enough energy
-        if check_energy:
-            current_quest_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
-            if quest["energy_cost"] > current_quest_energy:
-                continue
-            
         if quest["energy_cost"] > max_energy:
             continue
         
@@ -191,6 +185,7 @@ def get_best_training_quest(autoLoginUser_file, weights, max_energy=1e10, check_
     return best_quest
         
 def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log_filepath=None, verbose=False):
+    bot.sync_game(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)
     active_training = get_json_value(autoLoginUser_file, "data.character.active_training_id")
     
     if active_training == 0:
@@ -229,7 +224,7 @@ def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log
             local_weights[("fight", None)] = 1.0
             local_weights[("timer", None)] = 1.0
         
-        best_training_quest = get_best_training_quest(autoLoginUser_file, local_weights, max_energy=total_energy, verbose=verbose)
+        best_training_quest = get_best_quest(autoLoginUser_file, local_weights, quest_type = "data.training_quests", max_energy=total_energy, verbose=verbose)
         print("training_quest_energy:", current_energy)
         
         if best_training_quest["energy_cost"] > current_energy:
@@ -253,7 +248,7 @@ def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log
     
     bot.finish_training(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
-    return 10
+    return 60*10
     
 if __name__ == "__main__":
     defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
@@ -301,4 +296,3 @@ if __name__ == "__main__":
         print(f"Task will be available again at {next_available_time.strftime('%H:%M:%S')}")
         time.sleep(wait_time)
         # sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        sync_game(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=True)
