@@ -81,17 +81,17 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
         tomorrow = now.date() + datetime.timedelta(days=1)
         reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
         return (reset_time - now).total_seconds()
-
-    league_fight_count = bot.get_json_value(autoLoginUser_file, "data.character.league_fight_count")
-    if league_fight_count >= 24:
-        if verbose:
-            print("League fight limit reached")
-        now = datetime.datetime.now()
-        tomorrow = now.date() + datetime.timedelta(days=1)
-        reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
-        return (reset_time - now).total_seconds()
     
     while True:
+        league_fight_count = bot.get_json_value(autoLoginUser_file, "data.character.league_fight_count")
+        if league_fight_count >= 24:
+            if verbose:
+                print("League fight limit reached")
+            now = datetime.datetime.now()
+            tomorrow = now.date() + datetime.timedelta(days=1)
+            reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+            return (reset_time - now).total_seconds()
+        
         active_league_fight_id = bot.get_json_value(autoLoginUser_file, "data.character.active_league_fight_id")
         
         if active_league_fight_id == 0:
