@@ -72,7 +72,7 @@ def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldo
 
     return 3600
 
-def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, log_filepath=None, verbose=False):
     league_group_id = bot.get_json_value(autoLoginUser_file, "data.character.league_group_id")
     if league_group_id == 0:
         if verbose:
@@ -157,11 +157,13 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, log_filepath=Non
             
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        # break
     
-    return 3600*2
+    now = datetime.datetime.now()
+    tomorrow = now.date() + datetime.timedelta(days=1)
+    reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+    return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_filepath=None, verbose=False):
     while True:
         MAX_RETRIES = 2
         for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
@@ -226,6 +228,8 @@ def do_duel(request_file, body_file, autoLoginUser_file, log_filepath=None, verb
             
         bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        # break
     
-    return 40*60
+    now = datetime.datetime.now()
+    tomorrow = now.date() + datetime.timedelta(days=1)
+    reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+    return min(COOLDOWN, (reset_time - now).total_seconds())
