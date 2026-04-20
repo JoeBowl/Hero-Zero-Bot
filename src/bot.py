@@ -659,6 +659,86 @@ def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath
     )
     return response
 
+def start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="startTraining",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "training_id": str(best_training["id"]),
+            "refresh_trainings": "true",
+        },
+        success_msg="Training started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def start_training_quest(training_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="startTrainingQuest",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "training_quest_id": str(training_quest["id"]),
+            "training_ids": "0",
+        },
+        success_msg="Training quest started successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="claimTrainingQuestRewards",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="Training quest rewards claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_training_star(request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="claimTrainingStar",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "discard_item": "false",
+        },
+        success_msg="Training star claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="finishTraining",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="Training finished successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="syncGame",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "force_sync": "true" if force_sync else "false",
+        },
+        success_msg="Game synced successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
 def get_json_value(filepath, path, default=None):
     with open(filepath, 'r') as f:
         data = json.load(f)

@@ -10,86 +10,6 @@ import time
 from src.bot import perform_request, get_json_value, get_upgrade_value, is_new_item
 import src.bot as bot
 
-def start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="startTraining",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        custom_body={
-            "training_id": str(best_training["id"]),
-            "refresh_trainings": "true",
-        },
-        success_msg="Training started successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
-def start_training_quest(training_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="startTrainingQuest",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        custom_body={
-            "training_quest_id": str(training_quest["id"]),
-            "training_ids": "0",
-        },
-        success_msg="Training quest started successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
-def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="claimTrainingQuestRewards",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        success_msg="Training quest rewards claimed successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
-def claim_training_star(request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="claimTrainingStar",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        custom_body={
-            "discard_item": "false",
-        },
-        success_msg="Training star claimed successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
-def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="finishTraining",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        success_msg="Training finished successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
-def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
-    response = perform_request(
-        action="syncGame",
-        request_file=request_file,
-        body_file=body_file,
-        autoLoginUser_file=autoLoginUser_file,
-        custom_body={
-            "force_sync": "true" if force_sync else "false",
-        },
-        success_msg="Game synced successfully" if verbose else None,
-        log_filepath=log_filepath
-    )
-    return response
-
 def training_rewards(training):
     total = {}
 
@@ -284,8 +204,8 @@ def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log
         elif best_training["training_cost"] > training_count:
             raise RuntimeError("No energy. Breaking loop.")
         
-        response = start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        response = bot.start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         
     current_time = int(datetime.datetime.now().timestamp())
     training_end_time = get_json_value(autoLoginUser_file, "data.training.ts_end")
@@ -318,20 +238,20 @@ def do_training(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, log
             print("time:", time_left_for_quest, time_left_for_training_end)
             return min(time_left_for_quest, time_left_for_training_end)
         
-        start_training_quest(best_training_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.start_training_quest(best_training_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         
         training_stars_thresholds = [0.1, 0.4, 1.0]
         reward_value = json.loads(best_training_quest["rewards"])["training_progress"]
         print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
         for t in training_stars_thresholds:
             if current_progress < t * total_progress and current_progress + reward_value >= t * total_progress:
-                claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+                bot.claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         
         if current_progress+reward_value > total_progress:
             break
     
-    finish_training(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.finish_training(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     return 10
     
