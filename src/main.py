@@ -54,7 +54,7 @@ if __name__ == "__main__":
         # Login once every day
         if last_run_date is None or last_run_date < now.date():
             print("Logging in")
-            bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
+            bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=False)
             last_run_date = now.date()
                 
         next_task = min(task_list, key=lambda t: t.next_available_time)

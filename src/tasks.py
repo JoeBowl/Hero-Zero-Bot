@@ -115,7 +115,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
                     break
             
                 if attempt < MAX_RETRIES:
-                    bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                    bot.request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
                 else:
                     raise Exception("do_duel: Authorization failed after 3 retries")
                 
@@ -173,7 +173,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
                 break
         
             if attempt < MAX_RETRIES:
-                bot.request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                bot.request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             else:
                 raise Exception("do_duel: Authorization failed after 3 retries")
         

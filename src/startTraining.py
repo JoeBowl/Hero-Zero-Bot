@@ -289,7 +289,7 @@ if __name__ == "__main__":
         ("event_item", None): 2e3,
     }
     
-    bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, verbose=False)
+    bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=False)
     while True:
         wait_time = do_training(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)
         next_available_time = datetime.datetime.now() + datetime.timedelta(seconds=wait_time)

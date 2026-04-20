@@ -308,7 +308,7 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
         elif response['error'] == "errUserNotAuthorized":
             print(f"User not authorized. Refreshing user info and retrying in {cooldown} seconds...")
             time.sleep(cooldown)
-            request_user_info(request_file, body_file, autoLoginUser_file, verbose=False)
+            request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         else:
             raise RuntimeError(f"Unexpected error: {response['error']}")
     
@@ -423,10 +423,10 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
             error = response.get("error")
             if error == "errUserNotAuthorized":
                 print(f"Error '{error}' for room {room_id}. Refreshing user info...")
-                request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             elif error == "errCollectActivityResultInvalidStatus":
                 print(f"Error '{error}' for room {room_id}. Refreshing state...")
-                request_user_info(request_file, body_file, autoLoginUser_file, verbose=verbose)
+                request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
                 break  # re-scan fresh snapshot next iteration
             else:
                 collected_room_ids.add(room_id)
@@ -902,7 +902,7 @@ def perform_request(action, request_file, body_file, autoLoginUser_file, custom_
 
     return response_json
 
-def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False):
+def request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -927,6 +927,9 @@ def request_user_info(request_file, body_file, autoLoginUser_file, verbose=False
 
     # Send the POST request
     response = requests.post(URL, headers=DEFAULT_HEADERS, data=body)
+    
+    if log_filepath:
+        log_response("autoLoginUser", response, log_filepath)
 
     # Export the response
     try:
