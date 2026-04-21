@@ -217,10 +217,7 @@ def get_best_quest(autoLoginUser_file, weights, quest_type = "data.quests", max_
     return best_quest
 
 def is_new_item(value, items, autoLoginUser_file):
-    item_collections = get_json_value(
-        autoLoginUser_file,
-        "data.current_item_pattern_values"
-    )
+    owned_items = get_json_value(autoLoginUser_file, "data.owned_items")
     
     identifier = next(
         (item["identifier"] for item in items if item["id"] == value),
@@ -231,8 +228,8 @@ def is_new_item(value, items, autoLoginUser_file):
         raise ValueError(f"is_new_item: Item with id {value} not found in items")
     
     found = any(
-        identifier in collection["collected_items"]
-        for collection in item_collections.values()
+        owned_item["identifier"] == identifier
+        for owned_item in owned_items
     )
     
     return not found
