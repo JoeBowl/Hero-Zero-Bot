@@ -116,6 +116,9 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
             
             # Start by checking for weak characters that are not in the same guild as me
             for op in bot.get_json_value(autoLoginUser_file, "data.league_opponents"):
+                if op["opponent"]["name"].startswith("deleted"):
+                    continue
+                
                 op_stats = bot.get_stats(op["opponent"])
                 
                 is_guild = op["opponent"]["name"] in opponents_in_my_guild
@@ -177,6 +180,9 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
             
             # Start by checking for weak characters that are not in the same guild as me
             for op in bot.get_json_value(autoLoginUser_file, "data.opponents"):
+                if op["name"].startswith("deleted"):
+                    continue
+                
                 op_stats = bot.get_stats(op)
                 
                 is_guild = op["name"] in opponents_in_my_guild
