@@ -20,14 +20,12 @@ if __name__ == "__main__":
     config_filepath = f"{BASE_DIR}/src/config.py"
 
     COOLDOWN = config.COOLDOWN
-    REWARD_WEIGHTS = config.REWARD_WEIGHTS
-    CONSTANTS = config.CONSTANTS
     
     task_list  = [
         tasks.Task("Quest", 
-             partial(tasks.do_quest,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-             REWARD_WEIGHTS, CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
+            partial(tasks.do_quest,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                config.REWARD_WEIGHTS, config.CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
         
         tasks.Task("Duel",
             partial(tasks.do_duel,
@@ -40,9 +38,15 @@ if __name__ == "__main__":
                 log_filepath=log_filepath, verbose=True)) if config.do_league_duel else None,
 
         tasks.Task("CollectHideoutRooms", 
-             partial(tasks.do_collect_hideout_rooms,
-             defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-             cooldown=0.75, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
+            partial(tasks.do_collect_hideout_rooms,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                cooldown=0.75, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
+        
+        tasks.Task("SellInventory",
+            partial(tasks.do_sell_worse_inventory_items,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
+                log_filepath=log_filepath, verbose=True)) if config.do_sell_inventory else None,
     ]
     task_list = [t for t in task_list if t is not None]
 

@@ -152,7 +152,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
             # break
         
             bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            bot.get_league_rewards(autoLoginUser_file, verbose=True)
+            bot.get_league_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
             
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
@@ -223,7 +223,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
                 selected = min(candidates_all, key=lambda x: x["stats"])
                 
             bot.start_duel(selected["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            bot.get_duel_rewards(autoLoginUser_file, verbose=True)
+            bot.get_duel_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
             
         bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
@@ -233,3 +233,45 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
     tomorrow = now.date() + datetime.timedelta(days=1)
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
+
+def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
+    inventory = bot.get_json_value(autoLoginUser_file, "data.inventory")
+    items = bot.get_json_value(autoLoginUser_file, "data.items")
+    
+    allowed_qualities = set()
+    if sell_common:
+        allowed_qualities.add(1)
+    if sell_rare:
+        allowed_qualities.add(2)
+    if sell_epic:
+        allowed_qualities.add(3)
+    
+    if not allowed_qualities:
+        return COOLDOWN
+    
+    # Collect bag item IDs
+    bag_item_ids = {
+        value for key, value in inventory.items()
+        if key.startswith("bag_item") and value not in (0, -1)
+    }
+    
+    for item in items:
+        if item["id"] not in bag_item_ids:
+            continue
+
+        if item.get("quality") not in allowed_qualities:
+            continue
+
+        # Compare against equipped
+        upgrade_value = bot.get_upgrade_value(item["id"], inventory, items)
+        if upgrade_value >= 0:
+            continue
+            
+        bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
+        
+        if verbose:
+            print(f"Sold item {item['id']} {item['identifier']} Total {upgrade_value}")
+        
+        time.sleep(0.2)
+    
+    return COOLDOWN

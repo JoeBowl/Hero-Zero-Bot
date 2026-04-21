@@ -721,6 +721,36 @@ def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=No
     )
     return response
 
+def sell_item_request(item_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="sellInventoryItem",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "item_id": str(item_id)
+        },
+        success_msg=f"Sold item {item_id}" if verbose else None,
+        log_filepath=log_filepath
+    )
+    return response
+
+def claim_daily_bonus_reward(reward_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="claimDailyBonusRewardReward",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "id": str(reward_id),
+            "discard_item": "false"
+        },
+        success_msg=f"Daily bonus reward {reward_id} claimed successfully" if verbose else None,
+        log_filepath=log_filepath
+    )
+    
+    return response
+
 def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
     response = perform_request(
         action="syncGame",

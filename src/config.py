@@ -1,8 +1,14 @@
 COOLDOWN = 5
+
 do_quest = True
 do_duel = True
 do_league_duel = True
 do_collect_hideout_rooms = True
+do_sell_inventory  = True
+
+sell_common = True
+sell_rare = True
+sell_epic = False
 
 REWARD_WEIGHTS = {
     # Standard resources
