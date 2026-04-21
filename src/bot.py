@@ -287,8 +287,9 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_fil
             f"Quest {best_quest['id']} launched successfully. "
             f"XP: {best_quest['rewards']}, "
             f"Energy: {best_quest['duration']/60}"
-        ) if verbose else None,
-        log_filepath=log_filepath
+        ),
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -302,10 +303,6 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
         elif response['error'] == "errFinishNotYetCompleted":
             print(f"Quest not finished yet. Waiting {cooldown} seconds before retrying...")
             time.sleep(cooldown)
-        elif response['error'] == "errUserNotAuthorized":
-            print(f"User not authorized. Refreshing user info and retrying in {cooldown} seconds...")
-            time.sleep(cooldown)
-            request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         else:
             raise RuntimeError(f"Unexpected error: {response['error']}")
     
@@ -320,9 +317,9 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
         custom_body={
             "quest_id": "0"
         },
-        ignore_errors=["errUserNotAuthorized"],
-        success_msg="Quest completion verified" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Quest completion verified",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -337,8 +334,9 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
             "refresh_inventory": "true"
         },
     #     headers_override={"TE": "trailers"},
-        success_msg="Quest reward successfully collected" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Quest reward successfully collected",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -376,8 +374,9 @@ def buy_quest_energy_request(request_file, body_file, autoLoginUser_file, log_fi
         custom_body={
             "use_premium": "false"
         },
-        success_msg="Quest energy purchased successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Quest energy purchased successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -387,8 +386,9 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
         request_file,
         body_file,
         autoLoginUser_file,
-        success_msg="Free treasure reveal items claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Free treasure reveal items claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -418,10 +418,7 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
             response = collect_hideout_room_request(room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
 
             error = response.get("error")
-            if error == "errUserNotAuthorized":
-                print(f"Error '{error}' for room {room_id}. Refreshing user info...")
-                request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            elif error == "errCollectActivityResultInvalidStatus":
+            if error == "errCollectActivityResultInvalidStatus":
                 print(f"Error '{error}' for room {room_id}. Refreshing state...")
                 request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
                 break  # re-scan fresh snapshot next iteration
@@ -452,9 +449,10 @@ def collect_hideout_room_request(hideout_room_id, request_file, body_file, autoL
             "hideout_room_id": str(hideout_room_id),
             "collect": "true"
         },
-        success_msg=f"Hideout room {hideout_room_id} successfully collected" if verbose else None,
-        ignore_errors=["errUserNotAuthorized", "errCollectActivityResultInvalidStatus"], 
+        success_msg=f"Hideout room {hideout_room_id} successfully collected",
+        ignore_errors=["errCollectActivityResultInvalidStatus"], 
         log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -473,8 +471,9 @@ def get_user_vouchers_request(request_file, body_file, autoLoginUser_file, log_f
             "stream_id": parsed_request["body"]["existing_user_id"],
             "start_message_id": "0"
         },
-        success_msg="User vouchers retrieved successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="User vouchers retrieved successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -487,8 +486,9 @@ def redeem_voucher_request(voucher_code, request_file, body_file, autoLoginUser_
         custom_body={
             "code": str(voucher_code)
         },
-        success_msg="Voucher redeemed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Voucher redeemed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -550,9 +550,9 @@ def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepa
         request_file,
         body_file,
         autoLoginUser_file,
-        success_msg="League opponents retrieved successfully" if verbose else None,
-        ignore_errors=["errUserNotAuthorized"],
-        log_filepath=log_filepath
+        success_msg="League opponents retrieved successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -567,8 +567,9 @@ def start_league_fight(character_id, request_file, body_file, autoLoginUser_file
             "use_premium": "false",
             "refresh_opponents": "true"
         },
-        success_msg="League fight started successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="League fight started successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -578,8 +579,9 @@ def check_for_league_fight_complete(request_file, body_file, autoLoginUser_file,
         request_file,
         body_file,
         autoLoginUser_file,
-        success_msg="League fight completion checked successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="League fight completion checked successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -592,8 +594,9 @@ def claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_
         custom_body={
             "discard_item": "false"
         },
-        success_msg="League fight rewards claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="League fight rewards claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -603,9 +606,9 @@ def get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath
         request_file,
         body_file,
         autoLoginUser_file,
-        success_msg="Duel opponents retrieved successfully" if verbose else None,
-        ignore_errors=["errUserNotAuthorized"],
-        log_filepath=log_filepath
+        success_msg="Duel opponents retrieved successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -621,8 +624,9 @@ def start_duel(character_id, request_file, body_file, autoLoginUser_file, log_fi
             "refresh_opponents": "true",
             "server_id": "pt13"
         },
-        success_msg="Duel started successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Duel started successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -632,8 +636,9 @@ def check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_fil
         request_file,
         body_file,
         autoLoginUser_file,
-        success_msg="Duel completion checked successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Duel completion checked successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -647,8 +652,9 @@ def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath
             "discard_item": "false",
             "refresh_inventory": "true"
         },
-        success_msg="Duel rewards claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Duel rewards claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -662,8 +668,9 @@ def start_training(best_training, request_file, body_file, autoLoginUser_file, l
             "training_id": str(best_training["id"]),
             "refresh_trainings": "true",
         },
-        success_msg="Training started successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Training started successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -677,8 +684,9 @@ def start_training_quest(training_quest, request_file, body_file, autoLoginUser_
             "training_quest_id": str(training_quest["id"]),
             "training_ids": "0",
         },
-        success_msg="Training quest started successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Training quest started successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -688,8 +696,9 @@ def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, lo
         request_file=request_file,
         body_file=body_file,
         autoLoginUser_file=autoLoginUser_file,
-        success_msg="Training quest rewards claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Training quest rewards claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -702,8 +711,9 @@ def claim_training_star(request_file, body_file, autoLoginUser_file, discard_ite
         custom_body={
             "discard_item": "false",
         },
-        success_msg="Training star claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Training star claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -713,8 +723,9 @@ def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=No
         request_file=request_file,
         body_file=body_file,
         autoLoginUser_file=autoLoginUser_file,
-        success_msg="Training finished successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Training finished successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -727,8 +738,9 @@ def sell_item_request(item_id, request_file, body_file, autoLoginUser_file, log_
         custom_body={
             "item_id": str(item_id)
         },
-        success_msg=f"Sold item {item_id}" if verbose else None,
-        log_filepath=log_filepath
+        success_msg=f"Sold item {item_id}",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -742,10 +754,10 @@ def claim_daily_bonus_reward(reward_id, request_file, body_file, autoLoginUser_f
             "id": str(reward_id),
             "discard_item": "false"
         },
-        success_msg=f"Daily bonus reward {reward_id} claimed successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg=f"Daily bonus reward {reward_id} claimed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
-    
     return response
 
 def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
@@ -757,8 +769,9 @@ def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log
         custom_body={
             "force_sync": "true" if force_sync else "false",
         },
-        success_msg="Game synced successfully" if verbose else None,
-        log_filepath=log_filepath
+        success_msg="Game synced successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
     return response
 
@@ -859,7 +872,7 @@ def parse_request_with_body(request_txt, body_txt):
         "body": body
     }
         
-def perform_request(action, request_file, body_file, autoLoginUser_file, custom_body=None, headers_override=None, success_msg=None, ignore_errors=None, log_filepath=None):
+def perform_request(action, request_file, body_file, autoLoginUser_file, custom_body=None, headers_override=None, success_msg=None, ignore_errors=None, max_attempts=2, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:
         raw_request = f.read()
 
@@ -901,33 +914,43 @@ def perform_request(action, request_file, body_file, autoLoginUser_file, custom_
     headers.pop("Accept-Encoding", None)
     headers.pop("Connection", None)
     
-    # Send the POST request
-    response = requests.post(url, headers=headers, data=encoded_body)
-
-    if log_filepath:
-        log_response(action, response, log_filepath)
-
-    try:
-        response_json = response.json()
-    except ValueError:
-        raise RuntimeError(f"{action} returned non-JSON response: {response.text[:200]}")
-
     ignore_errors = set(ignore_errors or [])
-    if response_json["error"] == "":
-        if success_msg:
-            print(success_msg)
+    
+    for attempt in range(1, max_attempts + 1):
+        # Send the POST request
+        response = requests.post(url, headers=headers, data=encoded_body)
+    
+        if log_filepath:
+            log_response(action, response, log_filepath)
+    
+        try:
+            response_json = response.json()
+        except ValueError:
+            raise RuntimeError(f"{action} returned non-JSON response: {response.text[:200]}")
+    
+        if response_json["error"] == "":
+            if success_msg and verbose:
+                print(success_msg)
+    
+            with open(autoLoginUser_file, 'r') as f:
+                data = json.load(f)
+    
+            with open(autoLoginUser_file, 'w') as f:
+                json.dump(merge_json(data, response_json), f, indent=4)
+                
+            return response_json
+        elif response_json["error"] == "errUserNotAuthorized":
+            if attempt < max_attempts:
+                request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+                continue
+            else:
+                break
+        elif response_json["error"] in ignore_errors:
+            return response_json
+        else:
+            raise RuntimeError(f"{action} failed: {response_json['error']}")
 
-        with open(autoLoginUser_file, 'r') as f:
-            data = json.load(f)
-
-        with open(autoLoginUser_file, 'w') as f:
-            json.dump(merge_json(data, response_json), f, indent=4)
-    elif response_json["error"] in ignore_errors:
-        pass
-    else:
-        raise RuntimeError(f"{action} failed: {response_json['error']}")
-
-    return response_json
+    raise RuntimeError(f"{action} failed after {max_attempts} attempts")
 
 def request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     with open(request_file, 'r') as f:

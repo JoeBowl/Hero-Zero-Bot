@@ -106,19 +106,9 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
             candidates_weak = []
             candidates_same_team = []
             candidates_all = []
-            MAX_RETRIES = 2
-
-            for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
-                response = response = bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
-                if response.get("error") != "errUserNotAuthorized":
-                    break
+            bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
-                if attempt < MAX_RETRIES:
-                    bot.request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-                else:
-                    raise Exception("do_duel: Authorization failed after 3 retries")
-                
             opponents_in_my_guild = bot.get_league_opponents_in_my_guild(autoLoginUser_file)
             my_stats = bot.get_stats(
                 bot.get_json_value(autoLoginUser_file, "data.character")
@@ -165,18 +155,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
 
 def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_filepath=None, verbose=False):
     while True:
-        MAX_RETRIES = 2
-        for attempt in range(MAX_RETRIES + 1):  # initial try + 2 retries
-            response = bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        
-            if response.get("error") != "errUserNotAuthorized":
-                break
-        
-            if attempt < MAX_RETRIES:
-                bot.request_user_info(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            else:
-                raise Exception("do_duel: Authorization failed after 3 retries")
-        
+        bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
         
         if active_duel_id == 0:
