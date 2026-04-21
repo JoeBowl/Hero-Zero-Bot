@@ -85,5 +85,6 @@ if __name__ == "__main__":
 
                 ready_at = task.next_available_time.strftime('%H:%M:%S')
                 print(f"  - {task.name}: {status} (at {ready_at})")
-
+            
+            print(f"\nNext task: {next_task.name} (at {next_task.next_available_time:%H:%M:%S})")
             time.sleep(wait_time)
