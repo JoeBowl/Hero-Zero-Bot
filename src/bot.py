@@ -400,7 +400,7 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
             and room.get("status") == 6
         )
     hideout_rooms = get_json_value(autoLoginUser_file, "data.hideout_rooms")
-    rooms_to_collect = {"main_building", "stone_production", "glue_production"}
+    rooms_to_collect = {"main_building", "stone_production", "glue_production", "xp_production"}
     collected_room_ids = set()
                 
     # Retry logic for collecting hideout rooms in case of failure
