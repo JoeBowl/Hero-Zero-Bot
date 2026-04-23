@@ -66,12 +66,12 @@ def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTA
     bot.check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=log_filepath, verbose=verbose)
     bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
-    daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
-    if daily_bonus_rewards:
-        for reward in daily_bonus_rewards:
-            bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
-            if verbose:
-                print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
+    # daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
+    # if daily_bonus_rewards:
+    #     for reward in daily_bonus_rewards:
+    #         bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
+    #         if verbose:
+    #             print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
             
     return COOLDOWN  # recheck for a new quest in COOLDOWN secs
 
@@ -159,12 +159,12 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
-    daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
-    if daily_bonus_rewards:
-        for reward in daily_bonus_rewards:
-            bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
-            if verbose:
-                print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
+    # daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
+    # if daily_bonus_rewards:
+    #     for reward in daily_bonus_rewards:
+    #         bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
+    #         if verbose:
+    #             print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
@@ -229,12 +229,12 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
         bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
-    daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
-    if daily_bonus_rewards:
-        for reward in daily_bonus_rewards:
-            bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
-            if verbose:
-                print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
+    # daily_bonus_rewards = bot.get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
+    # if daily_bonus_rewards:
+    #     for reward in daily_bonus_rewards:
+    #         bot.claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
+    #         if verbose:
+    #             print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
