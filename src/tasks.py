@@ -7,6 +7,7 @@ sys.path.append(str(BASE_DIR))
 import src.bot as bot
 import datetime
 import time
+import json
 
 class Task:
     def __init__(self, name, function_to_run, duration=0):
@@ -25,11 +26,11 @@ class Task:
         print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}")
         return wait_time
 
-def do_quest(request_file, body_file, autoLoginUser_file, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=5, log_filepath=None, verbose=False):
+def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=5, log_filepath=None, verbose=False):
     active_quest_id = bot.get_active_quest_id(autoLoginUser_file)
 
     if active_quest_id == 0:
-        best_quest = bot.get_best_quest(autoLoginUser_file, REWARD_WEIGHTS, verbose=verbose)
+        best_quest = bot.get_best_quest(autoLoginUser_file, constants_file, REWARD_WEIGHTS, verbose=verbose)
             
         current_quest_energy = bot.get_current_energy(autoLoginUser_file)
         print("quest_energy:", current_quest_energy)
@@ -241,9 +242,13 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
+def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
     inventory = bot.get_json_value(autoLoginUser_file, "data.inventory")
     items = bot.get_json_value(autoLoginUser_file, "data.items")
+    
+    # Load constants data
+    with open(constants_file, "r", encoding="utf-8") as f:
+        contants_data = json.load(f)
     
     allowed_qualities = set()
     if sell_common:
@@ -270,11 +275,11 @@ def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, C
             continue
 
         # Compare against equipped
-        upgrade_value = bot.get_upgrade_value(item["id"], inventory, items)
+        upgrade_value = bot.get_upgrade_value(item["id"], autoLoginUser_file, contants_data, verbose=False)
         if upgrade_value >= 0:
             continue
             
-        bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
+        # bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
         
         if verbose:
             print(f"Sold item {item['id']} {item['identifier']} Total {upgrade_value}")

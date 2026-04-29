@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import json
 import time
+import numpy as np
 from functools import reduce
 import operator
 
@@ -137,9 +138,13 @@ def get_duel_opponents_in_my_guild(autoLoginUser_file):
 
     return list(opponents_names & guild_members_names)
 
-def get_best_quest(autoLoginUser_file, weights, quest_type = "data.quests", max_energy=1e10, verbose=False):
+def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "data.quests", max_energy=1e10, verbose=False):
     inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
+    
+    # Load constants data
+    with open(constants_file, "r", encoding="utf-8") as f:
+        contants_data = json.load(f)
     
     best_quest = {
         "id": None,
@@ -165,7 +170,7 @@ def get_best_quest(autoLoginUser_file, weights, quest_type = "data.quests", max_
         for key, value in rewards.items():            
             # Compute score for item upgrade and new item
             if key == "item":
-                upgrade_value = get_upgrade_value(value, inventory, items)
+                upgrade_value = get_upgrade_value(value, autoLoginUser_file, contants_data, verbose=False)
                 score += max(0, upgrade_value) * weights.get(("item", None), 0)
                 
                 if is_new_item(value, items, autoLoginUser_file):
@@ -234,45 +239,109 @@ def is_new_item(value, items, autoLoginUser_file):
     
     return not found
 
-def get_item_score(item):
-    return (
-        item.get("stat_stamina", 0) +
-        item.get("stat_strength", 0) +
-        item.get("stat_critical_rating", 0) +
-        item.get("stat_dodge_rating", 0)
-    )
-
-def get_equipped_item(inventory, items, item_type):
-    slot_map = {
-        1: "mask_item_id",
-        2: "cape_item_id",
-        3: "suit_item_id",
-        4: "belt_item_id",
-        5: "boots_item_id",
-        6: "weapon_item_id",
-        7: "gadget_item_id",
+def score_state(autoLoginUser_file, contants_data, override_item=None):
+    # VALID_SLOTS definition
+    VALID_SLOTS = {
+        "mask_item_id",
+        "cape_item_id",
+        "suit_item_id",
+        "belt_item_id",
+        "boots_item_id",
+        "weapon_item_id",
+        "gadget_item_id",
     }
+    
+    inventory = get_json_value(autoLoginUser_file, "data.inventory")
+    items = get_json_value(autoLoginUser_file, "data.items")
+    
+    # Fetch character stats directly
+    character_data = get_json_value(autoLoginUser_file, "data.character")
+    characters_stats = [
+        character_data["stat_base_stamina"],
+        character_data["stat_base_strength"],
+        character_data["stat_base_critical_rating"],
+        character_data["stat_base_dodge_rating"],
+    ]
 
-    slot = slot_map.get(item_type)
-    if not slot:
-        return None
+    equipped = []
+    set_counts = {}
 
-    equipped_id = inventory.get(slot, 0)
-    if equipped_id == 0:
-        return None
+    # Build equipped items and set counts
+    for slot, item_id in inventory.items():
+        if slot not in VALID_SLOTS:
+            continue
 
-    return next((i for i in items if i["id"] == equipped_id), None)
+        if not item_id or item_id <= 0:
+            continue
 
-def get_upgrade_value(item_id, inventory, items):
+        item = next((i for i in items if i["id"] == item_id), None)
+        if item:
+            equipped.append(item)
+
+    # Simulate the swap with the override item if needed
+    if override_item:
+        equipped = [
+            override_item if i["type"] == override_item["type"] else i
+            for i in equipped
+        ]
+        if override_item["type"] not in [i["type"] for i in equipped]:
+            equipped.append(override_item)
+
+    # Build set counts inside the state
+    for item in equipped:
+        template = contants_data["item_templates"][item['identifier']]
+        set_id = template.get("item_set_identifier")
+
+        if set_id:
+            set_counts[set_id] = set_counts.get(set_id, 0) + 1
+
+    total = 0
+
+    # Add base stats for each equipped item
+    for item in equipped:
+        total += (
+            item.get("stat_stamina", 0) +
+            item.get("stat_strength", 0) +
+            item.get("stat_critical_rating", 0) +
+            item.get("stat_dodge_rating", 0)
+        )
+
+    # Add set bonuses once per set
+    for set_id, count in set_counts.items():
+        bonuses = contants_data["item_set_templates"][set_id]["bonus"]
+
+        for threshold, bonus in bonuses.items():
+            if count >= int(threshold):
+                total += int(np.floor(bonus["value"] * characters_stats[bonus["type"] - 1]))
+
+    return total
+
+def get_upgrade_value(item_id, autoLoginUser_file, contants_data, verbose=False):
+    items = get_json_value(autoLoginUser_file, "data.items")
+    
     reward_item = next((i for i in items if i["id"] == item_id), None)
+    
     if not reward_item:
+        if verbose:
+            print(f"Item with ID {item_id} not found!")
         return 0
 
-    equipped_item = get_equipped_item(inventory, items, reward_item["type"])
+    # current build
+    current_score = score_state(autoLoginUser_file, contants_data)
 
-    reward_score = get_item_score(reward_item)
-    equipped_score = get_item_score(equipped_item) if equipped_item else 0
-    return reward_score - equipped_score
+    # simulated build with reward item
+    new_score = score_state(autoLoginUser_file, contants_data, reward_item)
+    
+    # Calculate the score difference
+    score_difference = new_score - current_score
+    
+    if verbose:
+        print("Item ID:", item_id)
+        print(f"Current Score: {current_score}")
+        print(f"New Score: {new_score}")
+        print(f"Score Difference: {score_difference}")
+
+    return score_difference
 
 def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
