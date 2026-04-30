@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 cooldown=0.75, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
         
         tasks.Task("SellInventory",
-            partial(tasks.do_sell_worse_inventory_items,
+            partial(tasks.do_sell_inventory_items,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
                 sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
                 log_filepath=log_filepath, verbose=True)) if config.do_sell_inventory else None,

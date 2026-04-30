@@ -230,7 +230,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
+def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
     inventory = bot.get_json_value(autoLoginUser_file, "data.inventory")
     items = bot.get_json_value(autoLoginUser_file, "data.items")
     
@@ -267,7 +267,7 @@ def do_sell_worse_inventory_items(request_file, body_file, autoLoginUser_file, c
         if upgrade_value >= 0:
             continue
             
-        # bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
+        bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
         
         if verbose:
             print(f"Sold item {item['id']} {item['identifier']} Total {upgrade_value}")
