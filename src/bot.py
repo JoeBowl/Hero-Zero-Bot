@@ -631,6 +631,29 @@ def redeem_energy_voucher(request_file, body_file, autoLoginUser_file, log_filep
 
     return redeem_response
 
+def claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):     
+    # Load rewards list
+    daily_bonus_rewards = get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
+    
+    if not daily_bonus_rewards:
+        return
+    
+    # Claim rewards
+    for reward in daily_bonus_rewards:
+        claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        if verbose:
+            print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
+
+    # Load full JSON for update
+    data = get_json_value(autoLoginUser_file)
+    
+    # Remove rewards key
+    del data["data"]["daily_bonus_rewards"]
+    
+    # Save updated JSON
+    with open(autoLoginUser_file, "w") as json_file:
+        json.dump(data, json_file, indent=4)
+
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
         "getLeagueOpponents",
@@ -862,9 +885,12 @@ def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log
     )
     return response
 
-def get_json_value(filepath, path, default=None):
+def get_json_value(filepath, path=None, default=None):
     with open(filepath, 'r') as f:
         data = json.load(f)
+        
+    if path is None:
+        return data  # return full JSON
     
     # Convert dot-separated string to list of keys
     if isinstance(path, str):
