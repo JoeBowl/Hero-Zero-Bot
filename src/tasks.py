@@ -68,7 +68,7 @@ def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD
     bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
     return COOLDOWN  # recheck for a new quest in COOLDOWN secs
 
@@ -157,7 +157,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
         bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
@@ -223,7 +223,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
         bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)

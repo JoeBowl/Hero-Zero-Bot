@@ -904,6 +904,13 @@ def get_json_value(filepath, path=None, default=None):
 def merge_json(json1, json2, path=None):
     if path is None:
         path = []
+        
+    # Special case: map data.item → data.items
+    if path == ["data"] and isinstance(json2, dict):
+        if "item" in json2:
+            json2 = json2.copy()
+            json2.setdefault("items", [])
+            json2["items"].append(json2.pop("item"))
 
     # If both are dicts → merge recursively
     if isinstance(json1, dict) and isinstance(json2, dict):
