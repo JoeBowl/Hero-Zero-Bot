@@ -26,7 +26,7 @@ if __name__ == "__main__":
         tasks.Task("Quest", 
             partial(tasks.do_quest,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath, 
-                config.REWARD_WEIGHTS, config.CONSTANTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
+                config.REWARD_WEIGHTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
         
         tasks.Task("Duel",
             partial(tasks.do_duel,
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         # Login once every day
         if last_run_date is None or last_run_date < now.date():
             print("Logging in")
-            bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=False)
+            # bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=False)
             last_run_date = now.date()
                 
         next_task = min(task_list, key=lambda t: t.next_available_time)
@@ -88,4 +88,5 @@ if __name__ == "__main__":
                 print(f"  - {task.name}: {status} (at {ready_at})")
             
             print(f"\nNext task: {next_task.name} (at {next_task.next_available_time:%H:%M:%S})")
+            break
             time.sleep(wait_time)

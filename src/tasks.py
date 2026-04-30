@@ -26,7 +26,7 @@ class Task:
         print(f"[{self.name}] Task will be available again at {self.next_available_time.strftime('%H:%M:%S')}")
         return wait_time
 
-def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, CONSTANTS, COOLDOWN=5, log_filepath=None, verbose=False):
+def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, COOLDOWN=5, log_filepath=None, verbose=False):
     active_quest_id = bot.get_active_quest_id(autoLoginUser_file)
 
     if active_quest_id == 0:
@@ -38,7 +38,7 @@ def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD
         if not best_quest or best_quest["id"] is None:
             raise RuntimeError("No valid quest found. Breaking loop.")
         elif best_quest["energy_cost"] > current_quest_energy:
-            response = bot.buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log_filepath=log_filepath, verbose=verbose)
+            response = bot.buy_quest_energy(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
             
             if response["error"] == "refillLimitReached":
                 now = datetime.datetime.now()

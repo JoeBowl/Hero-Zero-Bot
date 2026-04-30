@@ -1,11 +1,13 @@
 COOLDOWN = 5
 
+# Actions performed by the bot
 do_quest = True
 do_duel = True
 do_league_duel = True
 do_collect_hideout_rooms = True
 do_sell_inventory  = True
 
+# What its to sell, if do_sell_inventory is set to True
 sell_common = True
 sell_rare = True
 sell_epic = False
@@ -37,26 +39,4 @@ REWARD_WEIGHTS = {
     # ("event_item", 'easter_eggs'): 2e3,
     # ("event_item", 'easter_bunnies'): 2e3,
     ("event_item", None): 2e3,
-}
-
-# Constants from the game files that are needed for the buy_quest_energy function
-CONSTANTS = {
-    "energy_per_refill": 50,
-    "quest_max_refill_amount_per_day": 200,
-    "cost_factors": [
-        1800,
-        6300,
-        10800,
-        15300,
-        30600,
-        45900,
-        61200,
-        76500
-    ],
-    "coins_per_time": {
-        "base": 0.02,
-        "scale": 0.01,
-        "level_scale": 0.35,
-        "level_exp": 1.55
-    }
 }

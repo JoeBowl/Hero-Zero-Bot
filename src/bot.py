@@ -28,14 +28,29 @@ def get_stats(character):
         character["stat_total_dodge_rating"]
     )
 
-def get_energy_refill_cost(level, energy_refilled_today, const):
-    tier = energy_refilled_today // const["energy_per_refill"]
-    tier = min(tier, len(const["cost_factors"]) - 1)
+def get_energy_refill_cost(level, energy_refilled_today, contants_data):
+    cost_factors = [
+        contants_data["quest_energy_refill1_cost_factor"],
+        contants_data["quest_energy_refill2_cost_factor"],
+        contants_data["quest_energy_refill3_cost_factor"],
+        contants_data["quest_energy_refill4_cost_factor"],
+        contants_data["quest_energy_refill5_cost_factor"],
+        contants_data["quest_energy_refill6_cost_factor"],
+        contants_data["quest_energy_refill7_cost_factor"],
+        contants_data["quest_energy_refill8_cost_factor"]
+    ]
+    c = {
+        "base": contants_data["coins_per_time_base"],
+        "scale": contants_data["coins_per_time_scale"],
+        "level_scale": contants_data["coins_per_time_level_scale"],
+        "level_exp": contants_data["coins_per_time_level_exp"]
+    }
+    tier = energy_refilled_today // contants_data["quest_energy_refill_amount"]
+    tier = min(tier, len(cost_factors) - 1)
 
-    c = const["coins_per_time"]
     base = round(c["base"] + c["scale"] * (c["level_scale"] * level) ** c["level_exp"], 3)
     
-    return round(const["cost_factors"][tier] * base)
+    return round(cost_factors[tier] * base)
     
 def get_energy_voucher(autoLoginUser_file):
     user_vouchers = get_json_value(autoLoginUser_file, "data.user_vouchers")
@@ -142,7 +157,6 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
     inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
     
-    # Load constants data
     with open(constants_file, "r", encoding="utf-8") as f:
         contants_data = json.load(f)
     
@@ -409,21 +423,25 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
     )
     return response
 
-def buy_quest_energy(request_file, body_file, autoLoginUser_file, CONSTANTS, log_filepath=None, verbose=False):
+def buy_quest_energy(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=None, verbose=False):
     player_level = get_json_value(autoLoginUser_file, "data.character.level")
     energy_refilled_today = get_json_value(autoLoginUser_file, "data.character.quest_energy_refill_amount_today")
     game_currency = get_json_value(autoLoginUser_file, "data.character.game_currency")
-    energy_refill_cost = get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS)
+    
+    with open(constants_file, "r", encoding="utf-8") as f:
+        contants_data = json.load(f)
+        
+    energy_refill_cost = get_energy_refill_cost(player_level, energy_refilled_today, contants_data)
     print(
         f"Trying to buy energy!\n"
         f"Player level: {player_level} | Energy refilled today: {energy_refilled_today} | Game currency: {game_currency} | Refill cost: {energy_refill_cost}"
     )
     
-    if energy_refilled_today >= CONSTANTS["quest_max_refill_amount_per_day"]:
+    if energy_refilled_today >= contants_data["quest_max_refill_amount_per_day"]:
         print("Energy refill limit reached!")
         return {"data": "", "error": "refillLimitReached"}
     
-    if game_currency < get_energy_refill_cost(player_level, energy_refilled_today, CONSTANTS):
+    if game_currency < energy_refill_cost:
         print("Not enough currency to refill energy!")
         return {"data": "", "error": "refillLimitReached"}
         
