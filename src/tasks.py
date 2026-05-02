@@ -73,9 +73,21 @@ def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD
     return COOLDOWN  # recheck for a new quest in COOLDOWN secs
 
 def do_training(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, log_filepath=None, verbose=False):
-    # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    training_count = bot.get_json_value(autoLoginUser_file, "data.character.training_count")
+    if training_count == 0:
+        now = datetime.datetime.now()
+        tomorrow = now.date() + datetime.timedelta(days=1)
+        reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+        return (reset_time - now).total_seconds()
+
+    bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    training_pool = bot.get_json_value(autoLoginUser_file, "data.character.training_pool")
     active_training = bot.get_json_value(autoLoginUser_file, "data.character.active_training_id")
     
+    if training_pool == "" and active_training == 0:
+        bot.refresh_training_pool(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+
     if active_training == 0:
         best_training = bot.get_best_training(autoLoginUser_file, constants_file, REWARD_WEIGHTS, verbose=verbose)
         
@@ -87,8 +99,8 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
         elif best_training["training_cost"] > training_count:
             raise RuntimeError("No energy. Breaking loop.")
         bot.start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        
+        bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
     training_end_time = bot.get_json_value(autoLoginUser_file, "data.training.ts_end")
     
     while True:
@@ -97,18 +109,17 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
             break
         current_energy = bot.get_json_value(autoLoginUser_file, "data.character.training_energy")
         future_energy = (training_end_time - current_time)//60
+        total_energy = current_energy + future_energy
 
         total_progress = bot.get_json_value(autoLoginUser_file, "data.training.needed_energy")
         current_progress = bot.get_json_value(autoLoginUser_file, "data.training.energy")
         
-        if total_progress is None:
-            total_progress = (training_end_time - current_time)/60 + 30 * 10 - 5
         if current_progress is None:
             current_progress = 0
+        if total_progress is None:
+            total_progress = total_energy*10 + current_progress
     
         progress_needed = total_progress - current_progress
-        
-        total_energy = current_energy + future_energy
         
         local_weights = REWARD_WEIGHTS.copy()
         # print("energy:", total_energy, progress_needed)
@@ -137,7 +148,7 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
         
         training_stars_thresholds = [0.1, 0.4, 1.0]
         reward_value = json.loads(best_training_quest["rewards"])["training_progress"]
-        # print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
+        print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
         for t in training_stars_thresholds:
             if current_progress < t * total_progress and current_progress + reward_value >= t * total_progress:
                 bot.claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)

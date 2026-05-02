@@ -967,6 +967,22 @@ def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log
     )
     return response
 
+def refresh_training_pool(request_file, body_file, autoLoginUser_file, use_premium=False, use_free=True, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="refreshTrainingPool",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "use_premium": "true" if use_premium else "false",
+            "use_free": "true" if use_free else "false",
+        },
+        success_msg="Training pool refreshed successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+    return response
+
 def get_json_value(filepath, path=None, default=None):
     with open(filepath, 'r') as f:
         data = json.load(f)
