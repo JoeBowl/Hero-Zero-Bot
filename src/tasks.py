@@ -68,9 +68,86 @@ def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD
     bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
     return COOLDOWN  # recheck for a new quest in COOLDOWN secs
+
+def do_training(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, log_filepath=None, verbose=False):
+    # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    active_training = bot.get_json_value(autoLoginUser_file, "data.character.active_training_id")
+    
+    if active_training == 0:
+        best_training = bot.get_best_training(autoLoginUser_file, constants_file, REWARD_WEIGHTS, verbose=verbose)
+        
+        training_count = bot.get_json_value(autoLoginUser_file, "data.character.training_count")
+        print("training_count:", training_count)
+        
+        if not best_training or best_training["id"] is None:
+            raise RuntimeError("No valid training found. Breaking loop.")
+        elif best_training["training_cost"] > training_count:
+            raise RuntimeError("No energy. Breaking loop.")
+        bot.start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+    training_end_time = bot.get_json_value(autoLoginUser_file, "data.training.ts_end")
+    
+    while True:
+        current_time = int(datetime.datetime.now().timestamp())
+        if current_time >= training_end_time:
+            break
+        current_energy = bot.get_json_value(autoLoginUser_file, "data.character.training_energy")
+        future_energy = (training_end_time - current_time)//60
+
+        total_progress = bot.get_json_value(autoLoginUser_file, "data.training.needed_energy")
+        current_progress = bot.get_json_value(autoLoginUser_file, "data.training.energy")
+        
+        if total_progress is None:
+            total_progress = (training_end_time - current_time)/60 + 30 * 10 - 5
+        if current_progress is None:
+            current_progress = 0
+    
+        progress_needed = total_progress - current_progress
+        
+        total_energy = current_energy + future_energy
+        
+        local_weights = REWARD_WEIGHTS.copy()
+        # print("energy:", total_energy, progress_needed)
+        if total_energy * 10 >= progress_needed:
+            local_weights[("fight", None)] = 0.1
+            local_weights[("timer", None)] = 1.0
+        else:
+            local_weights[("fight", None)] = 1.0
+            local_weights[("timer", None)] = 1.0
+        
+        best_training_quest = bot.get_best_quest(autoLoginUser_file, constants_file, local_weights, quest_type = "data.training_quests", max_energy=total_energy, verbose=verbose)
+        time_left = training_end_time - current_time
+        print(f"training_quest_energy: {current_energy} | "
+              f"progress: {current_progress}/{total_progress} |"
+              f"time_left: {time_left//60:02d}:{time_left%60:02d}"
+        )
+        
+        if best_training_quest["energy_cost"] > current_energy:
+            time_left_for_quest = (best_training_quest["energy_cost"] - current_energy) * 60
+            time_left_for_training_end = training_end_time - current_time
+            # print("time:", time_left_for_quest, time_left_for_training_end)
+            return min(time_left_for_quest, time_left_for_training_end - 5)
+        
+        bot.start_training_quest(best_training_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        training_stars_thresholds = [0.1, 0.4, 1.0]
+        reward_value = json.loads(best_training_quest["rewards"])["training_progress"]
+        # print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
+        for t in training_stars_thresholds:
+            if current_progress < t * total_progress and current_progress + reward_value >= t * total_progress:
+                bot.claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        if current_progress+reward_value > total_progress:
+            break
+    
+    bot.finish_training(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    return 60*10
 
 def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
     bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
@@ -157,7 +234,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
         bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
@@ -223,7 +300,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_file
         bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    # bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)

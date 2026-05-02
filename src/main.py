@@ -48,6 +48,11 @@ if __name__ == "__main__":
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
                 sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
                 log_filepath=log_filepath, verbose=True)) if config.do_sell_inventory else None,
+        
+        tasks.Task("Training",
+            partial(tasks.do_training,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
+                config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.do_training else None,
     ]
     task_list = [t for t in task_list if t is not None]
 

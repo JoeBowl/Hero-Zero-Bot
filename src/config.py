@@ -2,6 +2,7 @@ COOLDOWN = 5
 
 # Actions performed by the bot
 do_quest = True
+do_training = False
 do_duel = True
 do_league_duel = True
 do_collect_hideout_rooms = True
@@ -17,6 +18,10 @@ REWARD_WEIGHTS = {
     ("xp", None): 1.0,
     ("coins", None): 0.0,
     ("premium", None): 1e10,
+    
+    # Trainings
+    ("statPoints", None): 1e4,
+    ("training_progress", None): 1e3,
 
     # Upgrade system
     ("item", None): 1e3,

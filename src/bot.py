@@ -349,11 +349,11 @@ def get_upgrade_value(item_id, autoLoginUser_file, contants_data, verbose=False)
     # Calculate the score difference
     score_difference = new_score - current_score
     
-    if verbose:
-        print("Item ID:", item_id)
-        print(f"Current Score: {current_score}")
-        print(f"New Score: {new_score}")
-        print(f"Score Difference: {score_difference}")
+    # if verbose:
+    #     print("Item ID:", item_id)
+    #     print(f"Current Score: {current_score}")
+    #     print(f"New Score: {new_score}")
+    #     print(f"Score Difference: {score_difference}")
 
     return score_difference
 
@@ -640,19 +640,101 @@ def claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_f
     
     # Claim rewards
     for reward in daily_bonus_rewards:
-        claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        if verbose:
-            print(f"Claimed Daily Bonus Reward: {reward['rewards']}")
+        if reward["status"] == 1:
+            claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+def training_rewards(training):
+    total = {}
 
-    # Load full JSON for update
-    data = get_json_value(autoLoginUser_file)
+    # Sum everything from rewards_star_X JSON
+    for key in ["rewards_star_1", "rewards_star_2", "rewards_star_3"]:
+        rewards = json.loads(training[key])
+        for k, v in rewards.items():
+            total[k] = total.get(k, 0) + v
+
+    # Add explicit stat_points_star_X fields
+    for key in ["stat_points_star_1", "stat_points_star_2", "stat_points_star_3"]:
+        total["statPoints"] = total.get("statPoints", 0) + training.get(key, 0)
+
+    return total
+
+def get_best_training(autoLoginUser_file, constants_file, weights, check_energy=False, verbose=False):
+    with open(constants_file, "r", encoding="utf-8") as f:
+        contants_data = json.load(f)
     
-    # Remove rewards key
-    del data["data"]["daily_bonus_rewards"]
+    inventory = get_json_value(autoLoginUser_file, "data.inventory")
+    items = get_json_value(autoLoginUser_file, "data.items")
+
+    best_training = {
+        "id": None,
+        "score": 0,
+        "training_cost": 999
+    }
+
+    if verbose:
+        print(f"{'ID':<8} {'Cost':<8} {'Score':<15} {'Rewards':<15}")
+        print("-" * 85)
+
+    # Loop through each quest in the JSON data
+    for training in get_json_value(autoLoginUser_file, "data.trainings"):
+        training_id = training["id"]
+        training_cost = training["training_cost"]
+        rewards = training_rewards(training)
+        
+        if training_cost == 0:
+            training_cost = 1e-6
+            
+        score = 0
+        for key, value in rewards.items():            
+            # Compute score for item upgrade
+            if key == "item":
+                upgrade_value = get_upgrade_value(value, autoLoginUser_file, contants_data, verbose=verbose)
+                score += max(0, upgrade_value) * weights.get(("item", None), 0)
+                
+                if is_new_item(value, items, autoLoginUser_file):
+                    score += weights[("new_item", None)]
+                continue
+            
+            # Compute score for stackable rewards (xp, coins...)
+            if isinstance(value, (int, float)) or str(value).isdigit():
+                value = int(value)
+                weight_key = (key, None)
+                score += value * weights.get(weight_key, 0)
+
+            # Compute score for non-stackable rewards
+            elif isinstance(value, str):
+                if (key, value) in weights:
+                    score += weights[(key, value)]
+                elif (key, None) in weights:
+                    score += weights[(key, None)]
+
+            # Unknown -> wait for further inspection
+            if (key, value) not in weights and (key, None) not in weights:
+                raise RuntimeError(
+                    f"{training_id:<8} {training_cost:<8.0f} {score:<15.2f} {rewards}\n"
+                    f"Reward weight not defined for key={key}, value={value}"
+                )
+                
+        # Weighted score
+        score = score / (training_cost*100)
+        
+        if verbose:
+            print(f"{training_id:<8} {training_cost:<8.0f} {score:<15.2f} {rewards}")
+            
+        # Skip if not enough energy
+        if check_energy:
+            training_energy = get_json_value(autoLoginUser_file, "data.character.training_energy")
+            if training_cost > training_energy:
+                continue
+        
+        if score > best_training["score"]:
+            best_training = training.copy()
+            best_training["score"] = score
     
-    # Save updated JSON
-    with open(autoLoginUser_file, "w") as json_file:
-        json.dump(data, json_file, indent=4)
+    if verbose:
+        print(f"Best Training: {best_training['id']} | Cost: {best_training['training_cost']} energy | Rewards: {training_rewards(best_training)}")
+        
+    return best_training
 
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
@@ -911,6 +993,10 @@ def merge_json(json1, json2, path=None):
             json2 = json2.copy()
             json2.setdefault("items", [])
             json2["items"].append(json2.pop("item"))
+        if "daily_bonus_reward" in json2:
+            json2 = json2.copy()
+            json2.setdefault("daily_bonus_rewards", [])
+            json2["daily_bonus_rewards"].append(json2.pop("daily_bonus_reward"))
 
     # If both are dicts → merge recursively
     if isinstance(json1, dict) and isinstance(json2, dict):
@@ -921,10 +1007,19 @@ def merge_json(json1, json2, path=None):
                 json1[key] = value
         return json1
 
-    # Special case: path == ["data", "items"] → append lists (no duplicates by id)
-    elif path == ["data", "items"] and isinstance(json1, list) and isinstance(json2, list):
-        existing_ids = {item["id"] for item in json1}
-        return json1 + [item for item in json2 if item["id"] not in existing_ids]
+    # Special case: items and daily_bonus_rewards → append lists (no duplicates by id)
+    elif path in (["data", "items"], ["data", "daily_bonus_rewards"]) and isinstance(json1, list) and isinstance(json2, list):
+        indexed = {item["id"]: item for item in json1}
+    
+        for item in json2:
+            item_id = item["id"]
+            if item_id in indexed:
+                # merge existing item
+                indexed[item_id] = merge_json(indexed[item_id], item, path + ["id"])
+            else:
+                indexed[item_id] = item
+    
+        return list(indexed.values())
 
     # If both are lists → overwrite
     elif isinstance(json2, list):
