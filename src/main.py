@@ -53,6 +53,11 @@ if __name__ == "__main__":
             partial(tasks.do_training,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
                 config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.do_training else None,
+        
+        tasks.Task("WorldBoss",
+            partial(tasks.fight_world_boss,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                COOLDOWN=0, log_filepath=log_filepath, verbose=True)) if config.do_world_boss else None,
     ]
     task_list = [t for t in task_list if t is not None]
 

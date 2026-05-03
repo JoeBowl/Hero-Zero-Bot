@@ -363,3 +363,60 @@ def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constan
         time.sleep(0.2)
     
     return COOLDOWN
+
+def fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, log_filepath=None, verbose=False):
+    if not bot.is_there_a_worldboss_event_going_on(autoLoginUser_file):
+        start_times = bot.get_json_value(autoLoginUser_file, "data.event_quest.worldboss_start_times")
+        
+        if not start_times:
+            return 3600  # fallback
+        
+        now = datetime.datetime.now()
+        upcoming_times = []
+
+        for entry in start_times:
+            dt = datetime.datetime.strptime(entry["startDateTime"], "%Y-%m-%d %H:%M:%S")
+            if dt > now:
+                upcoming_times.append(dt)
+                
+        if not upcoming_times:
+            # No more events today → wait longer (or until next refresh cycle)
+            return 3600
+        
+        next_event = min(upcoming_times)
+        wait_seconds = int((next_event - now).total_seconds())
+        
+        if verbose:
+            print(f"Next world boss at {next_event} (in {wait_seconds}s)")
+
+        return wait_seconds
+    
+    active_worldboss_attack_id = bot.get_json_value(autoLoginUser_file, "data.character.active_worldboss_attack_id")
+    worldboss_event_id = bot.get_json_value(autoLoginUser_file, "data.character.worldboss_event_id")
+    
+    if active_worldboss_attack_id == 0:
+        npc_hitpoints_current = bot.get_json_value(autoLoginUser_file, "data.worldboss_events.npc_hitpoints_current")
+        npc_hitpoints_total = bot.get_json_value(autoLoginUser_file, "data.worldboss_events.npc_hitpoints_total")
+        
+        if npc_hitpoints_total:
+            hp_percent = (npc_hitpoints_current / npc_hitpoints_total) * 100
+            print(f"World Boss HP: {npc_hitpoints_current}/{npc_hitpoints_total} ({hp_percent:.2f}%)")
+        else:
+            print("World Boss HP: unknown")
+        
+        bot.start_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, log_filepath=log_filepath, verbose=verbose)
+        
+        wait_time = bot.get_json_value(autoLoginUser_file, "data.worldboss_attack.duration")
+        return wait_time
+    else:
+        ts_complete = bot.get_json_value(autoLoginUser_file, "data.worldboss_attack.ts_complete")
+        ts_now = int(datetime.datetime.now().timestamp())
+        
+        if ts_complete > ts_now:
+            print("World boss attack not ready yet")
+            return ts_complete - ts_now
+    
+    bot.check_world_boss_attack_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.finish_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, log_filepath=log_filepath, verbose=verbose)
+    
+    return COOLDOWN

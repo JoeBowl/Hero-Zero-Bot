@@ -736,6 +736,41 @@ def get_best_training(autoLoginUser_file, constants_file, weights, check_energy=
         
     return best_training
 
+def is_there_a_worldboss_event_going_on(autoLoginUser_file):
+    worldboss_event_id = get_json_value(autoLoginUser_file, "data.character.worldboss_event_id")
+    worldboss_events = get_json_value(autoLoginUser_file, "data.worldboss_events")
+    if worldboss_event_id == 0 or worldboss_events is None:
+        return False
+    
+    for worldboss_event in worldboss_events:
+        if worldboss_event["id"] != worldboss_event_id:
+            continue
+        
+        status = worldboss_event["status"]
+        if status != 1:
+            return False
+        
+        worldboss_stage = worldboss_event["stage"]
+        player_max_stage = get_json_value(autoLoginUser_file, "data.current_goal_values.stage_reached")
+        
+        if worldboss_stage > player_max_stage:
+            return False
+        
+        server_time = get_json_value(autoLoginUser_file, "data.server_time")
+        worldboss_event_ts_start = worldboss_event["ts_start"]
+        worldboss_event_ts_end = worldboss_event["ts_end"]
+        
+        if server_time < worldboss_event_ts_start or server_time > worldboss_event_ts_end:
+            return False
+        
+        player_level = get_json_value(autoLoginUser_file, "data.character.level")
+        worldboss_event_min_level = worldboss_event["min_level"]
+        worldboss_event_max_level = worldboss_event["max_level"]
+        
+        if player_level < worldboss_event_min_level or player_level > worldboss_event_max_level:
+            return False
+    return True
+
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
         "getLeagueOpponents",
@@ -982,6 +1017,47 @@ def refresh_training_pool(request_file, body_file, autoLoginUser_file, use_premi
         verbose=verbose
     )
     return response
+
+def start_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, iterations=1, log_filepath=None, verbose=False):
+    response = perform_request(
+        action="startWorldbossAttack",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "worldboss_event_id": str(worldboss_event_id),
+            "iterations": str(iterations),
+        },
+        success_msg="World boss attack started successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+    return response
+
+def check_world_boss_attack_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        action="checkForWorldbossAttackComplete",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="World boss attack completion checked",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+
+def finish_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, log_filepath=None, verbose=False):
+    return perform_request(
+        action="finishWorldbossAttack",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "worldboss_event_id": str(worldboss_event_id),
+        },
+        success_msg="World boss attack finished successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
 
 def get_json_value(filepath, path=None, default=None):
     with open(filepath, 'r') as f:

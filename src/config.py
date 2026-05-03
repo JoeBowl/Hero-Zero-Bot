@@ -6,9 +6,10 @@ do_training = False
 do_duel = True
 do_league_duel = True
 do_collect_hideout_rooms = True
-do_sell_inventory  = True
+do_sell_inventory = True
+do_world_boss = False
 
-# What its to sell, if do_sell_inventory is set to True
+# What to sell if do_sell_inventory is True
 sell_common = True
 sell_rare = True
 sell_epic = False
