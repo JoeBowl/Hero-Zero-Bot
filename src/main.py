@@ -55,9 +55,14 @@ if __name__ == "__main__":
                 config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.do_training else None,
         
         tasks.Task("WorldBoss",
-            partial(tasks.fight_world_boss,
+            partial(tasks.do_fight_world_boss,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
                 COOLDOWN=0, log_filepath=log_filepath, verbose=True)) if config.do_world_boss else None,
+        
+        tasks.Task("ClaimTreasureEventFreeRewards",
+            partial(tasks.do_claim_free_treasure_revel_items,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                log_filepath=log_filepath, verbose=True)) if config.do_claim_treasure_event else None,
     ]
     task_list = [t for t in task_list if t is not None]
 

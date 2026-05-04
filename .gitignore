@@ -1,8 +1,8 @@
 __pycache__/
 myenv/
-src/defaultBody2.txt
-src/defaultHeaders2.txt
-src/autoLoginUser2.json
+src/defaultBody*
+src/defaultHeaders*
+src/autoLoginUser*
 constants_json.data
 constants.json
 temp*

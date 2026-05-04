@@ -364,7 +364,7 @@ def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constan
     
     return COOLDOWN
 
-def fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, log_filepath=None, verbose=False):
+def do_fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, log_filepath=None, verbose=False):
     if not bot.is_there_a_worldboss_event_going_on(autoLoginUser_file):
         start_times = bot.get_json_value(autoLoginUser_file, "data.event_quest.worldboss_start_times")
         
@@ -420,3 +420,21 @@ def fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, lo
     bot.finish_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, log_filepath=log_filepath, verbose=verbose)
     
     return COOLDOWN
+
+def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    treasure_event_id = bot.get_json_value(autoLoginUser_file, "data.character.treasure_event_id")
+    
+    if treasure_event_id == 0:
+        now = datetime.datetime.now()
+        tomorrow = now.date() + datetime.timedelta(days=1)
+        reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+        return (reset_time - now).total_seconds()
+    
+    current_time = int(datetime.datetime.now().timestamp())
+    ts_reveal_item_collected = bot.get_json_value(autoLoginUser_file, "data.treasure_event.ts_reveal_item_collected")
+    
+    if current_time - ts_reveal_item_collected < 3*3600:
+        return (ts_reveal_item_collected + 3*3600) - current_time
+    
+    bot.claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    return 3*3600
