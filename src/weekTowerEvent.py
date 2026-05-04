@@ -74,8 +74,19 @@ if __name__ == "__main__":
     tower_data = data["tower_data"]
     economy_data = data["economy_data"]
     
+    # M  = 1e6
+    # B  = 1e9
+    # T  = 1e12
+    # aa = 1e15
+    # ab = 1e18
+    # ac = 1e21
+    # ad = 1e24
+    # ae = 1e27
+    # af = 1e30
+    # ag = 1e33
+    # ah = 1e36
     print("before:", economy_data)
-    economy_data[0]["bank_amount"] += 100e27
+    economy_data[0]["bank_amount"] += 100e36
     print("after:", economy_data)
 
     response = sync_tower_event(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
