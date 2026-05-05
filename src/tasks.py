@@ -252,7 +252,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=2400, log_filepath=None, verbose=False):
+def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=480, log_filepath=None, verbose=False):
     while True:
         bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
@@ -436,5 +436,7 @@ def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_fi
     if current_time - ts_reveal_item_collected < 3*3600:
         return (ts_reveal_item_collected + 3*3600) - current_time
     
-    bot.claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    response = bot.claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    if response["error"] == "errClaimFreeTreasureRevealItemsCooldownActive":
+        return 60
     return 3*3600

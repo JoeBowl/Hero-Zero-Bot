@@ -416,7 +416,7 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
             "discard_item": "false",
             "refresh_inventory": "true"
         },
-    #     headers_override={"TE": "trailers"},
+        # headers_override={"TE": "trailers"},
         success_msg="Quest reward successfully collected",
         log_filepath=log_filepath,
         verbose=verbose
@@ -474,6 +474,7 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
         body_file,
         autoLoginUser_file,
         success_msg="Free treasure reveal items claimed successfully",
+        ignore_errors=["errClaimFreeTreasureRevealItemsCooldownActive"], 
         log_filepath=log_filepath,
         verbose=verbose
     )
