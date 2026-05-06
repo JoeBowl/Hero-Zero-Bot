@@ -1080,7 +1080,7 @@ def merge_json(json1, json2, path=None):
     if path is None:
         path = []
         
-    # Special case: map data.item → data.items
+    # Special case: Append items from data.item to data.items
     if path == ["data"] and isinstance(json2, dict):
         if "item" in json2:
             json2 = json2.copy()
@@ -1091,15 +1091,11 @@ def merge_json(json1, json2, path=None):
             json2.setdefault("daily_bonus_rewards", [])
             json2["daily_bonus_rewards"].append(json2.pop("daily_bonus_reward"))
 
-    # If both are dicts → merge recursively
-    if isinstance(json1, dict) and isinstance(json2, dict):
-        for key, value in json2.items():
-            if key in json1:
-                json1[key] = merge_json(json1[key], value, path + [key])
-            else:
-                json1[key] = value
-        return json1
-
+    # Special case: If training id changes, wipe out old training data
+    elif path == ["data", "training"] and isinstance(json1, dict) and isinstance(json2, dict):
+        if json1.get("id") != json2.get("id"):
+            return json2  # replace completely
+        
     # Special case: items and daily_bonus_rewards → append lists (no duplicates by id)
     elif path in (["data", "items"], ["data", "daily_bonus_rewards"]) and isinstance(json1, list) and isinstance(json2, list):
         indexed = {item["id"]: item for item in json1}
@@ -1113,6 +1109,15 @@ def merge_json(json1, json2, path=None):
                 indexed[item_id] = item
     
         return list(indexed.values())
+
+    # If both are dicts → merge recursively
+    if isinstance(json1, dict) and isinstance(json2, dict):
+        for key, value in json2.items():
+            if key in json1:
+                json1[key] = merge_json(json1[key], value, path + [key])
+            else:
+                json1[key] = value
+        return json1
 
     # If both are lists → overwrite
     elif isinstance(json2, list):
