@@ -215,10 +215,13 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
         score = score / (quest_cost*60)
 
         # Add quest type multiplier
-        if quest["fight_difficulty"] == 0:
-            score = score * weights[("timer", None)]
-        else:
-            score = score * weights[("fight", None)]
+        difficulty_keys = {
+            0: ("timer", None),
+            1: ("fight_difficulty_1", None),
+            2: ("fight_difficulty_2", None),
+            3: ("fight_difficulty_3", None)
+        }
+        score *= weights[difficulty_keys[quest["fight_difficulty"]]]
 
         if verbose:
             print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")

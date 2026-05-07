@@ -141,11 +141,15 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
             local_weights = REWARD_WEIGHTS.copy()
             # print("energy:", total_energy, progress_needed)
             if total_energy * 10 >= progress_needed:
-                local_weights[("fight", None)] = 0.1
                 local_weights[("timer", None)] = 1.0
+                local_weights[("fight_difficulty_1", None)] = 0.1
+                local_weights[("fight_difficulty_2", None)] = 0.1
+                local_weights[("fight_difficulty_3", None)] = 0.1
             else:
-                local_weights[("fight", None)] = 1.0
                 local_weights[("timer", None)] = 1.0
+                local_weights[("fight_difficulty_1", None)] = 1.0
+                local_weights[("fight_difficulty_2", None)] = 1.0
+                local_weights[("fight_difficulty_3", None)] = 1.0
             
             best_training_quest = bot.get_best_quest(autoLoginUser_file, constants_file, local_weights, quest_type = "data.training_quests", max_energy=total_energy, verbose=verbose)
             time_left = training_end_time - current_time
