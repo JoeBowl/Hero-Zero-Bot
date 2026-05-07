@@ -1112,6 +1112,20 @@ def merge_json(json1, json2, path=None):
                 indexed[item_id] = item
     
         return list(indexed.values())
+    
+    # Special case: owned_items → append lists (no duplicates by identifier)
+    elif path in (["data", "owned_items"]) and isinstance(json1, list) and isinstance(json2, list):
+        indexed = {item["identifier"]: item for item in json1}
+    
+        for item in json2:
+            item_id = item["identifier"]
+            if item_id in indexed:
+                # merge existing item
+                indexed[item_id] = merge_json(indexed[item_id], item, path + ["identifier"])
+            else:
+                indexed[item_id] = item
+    
+        return list(indexed.values())
 
     # If both are dicts → merge recursively
     if isinstance(json1, dict) and isinstance(json2, dict):
