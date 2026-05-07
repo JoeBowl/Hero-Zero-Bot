@@ -122,7 +122,8 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
 
     while True:
         training_quest_id = bot.get_json_value(autoLoginUser_file, "data.training.training_quest_id")
-        if training_quest_id == 0:
+        print(training_quest_id)
+        if training_quest_id == 0 or training_quest_id == None:
             
             current_time = int(datetime.datetime.now().timestamp())
             if current_time >= training_end_time:
