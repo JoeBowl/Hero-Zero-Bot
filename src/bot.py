@@ -755,7 +755,7 @@ def is_there_a_worldboss_event_going_on(autoLoginUser_file):
             return False
         
         worldboss_stage = worldboss_event["stage"]
-        player_max_stage = get_json_value(autoLoginUser_file, "data.current_goal_values.stage_reached")
+        player_max_stage = get_json_value(autoLoginUser_file, "data.character.max_quest_stage")
         
         if worldboss_stage > player_max_stage:
             return False

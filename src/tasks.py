@@ -184,7 +184,7 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
 def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
     bot.collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=cooldown, log_filepath=log_filepath, verbose=verbose)
 
-    return 3600
+    return 1800
 
 def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, log_filepath=None, verbose=False):
     league_group_id = bot.get_json_value(autoLoginUser_file, "data.character.league_group_id")
