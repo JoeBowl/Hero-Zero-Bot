@@ -810,7 +810,7 @@ def get_best_duel_opponent(autoLoginUser_file, opponents, reward_key, weak_thres
     return min(candidates_all, key=lambda x: x["stats"])
 
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "getLeagueOpponents",
         request_file,
         body_file,
@@ -819,10 +819,9 @@ def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepa
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def start_league_fight(character_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "startLeagueFight",
         request_file,
         body_file,
@@ -836,10 +835,9 @@ def start_league_fight(character_id, request_file, body_file, autoLoginUser_file
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "checkForLeagueFightComplete",
         request_file,
         body_file,
@@ -848,10 +846,9 @@ def check_for_league_fight_complete(request_file, body_file, autoLoginUser_file,
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "claimLeagueFightRewards",
         request_file,
         body_file,
@@ -863,10 +860,9 @@ def claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "getDuelOpponents",
         request_file,
         body_file,
@@ -875,10 +871,9 @@ def get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def start_duel(character_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "startDuel",
         request_file,
         body_file,
@@ -894,10 +889,9 @@ def start_duel(character_id, request_file, body_file, autoLoginUser_file, log_fi
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "checkForDuelComplete",
         request_file,
         body_file,
@@ -906,10 +900,9 @@ def check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_fil
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "claimDuelRewards",
         request_file,
         body_file,
@@ -922,10 +915,9 @@ def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def start_training(best_training, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="startTraining",
         request_file=request_file,
         body_file=body_file,
@@ -938,10 +930,9 @@ def start_training(best_training, request_file, body_file, autoLoginUser_file, l
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def start_training_quest(training_quest, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="startTrainingQuest",
         request_file=request_file,
         body_file=body_file,
@@ -954,10 +945,9 @@ def start_training_quest(training_quest, request_file, body_file, autoLoginUser_
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="claimTrainingQuestRewards",
         request_file=request_file,
         body_file=body_file,
@@ -966,10 +956,9 @@ def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, lo
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def claim_training_star(request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="claimTrainingStar",
         request_file=request_file,
         body_file=body_file,
@@ -981,10 +970,9 @@ def claim_training_star(request_file, body_file, autoLoginUser_file, discard_ite
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="finishTraining",
         request_file=request_file,
         body_file=body_file,
@@ -993,10 +981,9 @@ def finish_training(request_file, body_file, autoLoginUser_file, log_filepath=No
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def sell_item_request(item_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="sellInventoryItem",
         request_file=request_file,
         body_file=body_file,
@@ -1008,10 +995,9 @@ def sell_item_request(item_id, request_file, body_file, autoLoginUser_file, log_
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def claim_daily_bonus_reward(reward_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="claimDailyBonusRewardReward",
         request_file=request_file,
         body_file=body_file,
@@ -1024,10 +1010,9 @@ def claim_daily_bonus_reward(reward_id, request_file, body_file, autoLoginUser_f
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="syncGame",
         request_file=request_file,
         body_file=body_file,
@@ -1039,10 +1024,9 @@ def sync_game(request_file, body_file, autoLoginUser_file, force_sync=False, log
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def refresh_training_pool(request_file, body_file, autoLoginUser_file, use_premium=False, use_free=True, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="refreshTrainingPool",
         request_file=request_file,
         body_file=body_file,
@@ -1055,10 +1039,9 @@ def refresh_training_pool(request_file, body_file, autoLoginUser_file, use_premi
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def start_world_boss_attack(request_file, body_file, autoLoginUser_file, worldboss_event_id, iterations=1, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         action="startWorldbossAttack",
         request_file=request_file,
         body_file=body_file,
@@ -1071,7 +1054,6 @@ def start_world_boss_attack(request_file, body_file, autoLoginUser_file, worldbo
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
 
 def check_world_boss_attack_complete(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     return perform_request(
@@ -1099,7 +1081,7 @@ def finish_world_boss_attack(request_file, body_file, autoLoginUser_file, worldb
     )
 
 def set_character_stage(stage, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
-    response = perform_request(
+    return perform_request(
         "setCharacterStage",
         request_file,
         body_file,
@@ -1111,7 +1093,21 @@ def set_character_stage(stage, request_file, body_file, autoLoginUser_file, log_
         log_filepath=log_filepath,
         verbose=verbose
     )
-    return response
+
+def buy_booster(action, booster_id, duration, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        action=str(action),
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "id": str(booster_id),
+            "duration": str(duration),
+        },
+        success_msg=f"Booster {booster_id} purchased successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
 
 def get_json_value(filepath, path=None, default=None):
     with open(filepath, 'r') as f:

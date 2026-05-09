@@ -431,3 +431,38 @@ def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_fi
     if response["error"] == "errClaimFreeTreasureRevealItemsCooldownActive":
         return 60
     return 3*3600
+
+def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=None):
+    ts_active_quest_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_quest_boost_expires")
+    ts_active_stats_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_stats_boost_expires")
+    ts_active_work_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_work_boost_expires")
+    ts_active_league_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_league_boost_expires")
+    ts_now = int(datetime.datetime.now().timestamp())
+    
+    # 2 days in seconds
+    two_days_seconds = 2 * 24 * 60 * 60
+    
+    # Check quest boost
+    if ts_active_quest_boost_expires is not None:
+        if ts_active_quest_boost_expires <= ts_now + two_days_seconds:
+            bot.buy_booster("buyBooster", "booster_quest2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    # Check stats boost
+    if ts_active_stats_boost_expires is not None:
+        if ts_active_stats_boost_expires <= ts_now + two_days_seconds:
+            bot.buy_booster("buyBooster", "booster_stats2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    # Check work boost
+    if ts_active_work_boost_expires is not None:
+        if ts_active_work_boost_expires <= ts_now + two_days_seconds:
+            bot.buy_booster("buyBooster", "booster_work2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    # Check league boost
+    if ts_active_league_boost_expires is not None:
+        if ts_active_league_boost_expires <= ts_now + two_days_seconds:
+            bot.buy_booster("buyLeagueBooster", "booster_league1", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    now = datetime.datetime.now()
+    tomorrow = now.date() + datetime.timedelta(days=1)
+    reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+    return (reset_time - now).total_seconds()
