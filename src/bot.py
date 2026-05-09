@@ -118,37 +118,17 @@ def print_duel_rewards(autoLoginUser_file, verbose=False):
             print(f"Duel lost against {opponent_name}. Rewards: {rewards}")
     
     return winner == me, rewards
-    
-def get_league_opponents_in_my_guild(autoLoginUser_file):
+
+def get_opponents_in_my_guild(autoLoginUser_file, opponents):
     if get_json_value(autoLoginUser_file, "data.character.guild_id") == 0:
         return []
-    
-    with open(autoLoginUser_file, 'r') as f:
-        data = json.load(f)
 
     opponents_names = {
-        opponent["opponent"]["name"] for opponent in data["data"]["league_opponents"]
+        opponent["name"] for opponent in opponents
     }
 
     guild_members_names = {
-        member["name"] for member in data["data"]["guild_members"]
-    }
-
-    return list(opponents_names & guild_members_names)
-
-def get_duel_opponents_in_my_guild(autoLoginUser_file):
-    if get_json_value(autoLoginUser_file, "data.character.guild_id") == 0:
-        return []
-    
-    with open(autoLoginUser_file, 'r') as f:
-        data = json.load(f)
-
-    opponents_names = {
-        opponent["name"] for opponent in data["data"]["opponents"]
-    }
-
-    guild_members_names = {
-        member["name"] for member in data["data"]["guild_members"]
+        member["name"] for member in get_json_value(autoLoginUser_file, "data.guild_members")
     }
 
     return list(opponents_names & guild_members_names)
@@ -777,12 +757,12 @@ def is_there_a_worldboss_event_going_on(autoLoginUser_file):
             return False
     return True
 
-def get_best_duel_opponent(autoLoginUser_file, opponents, weak_threshold=800):
+def get_best_duel_opponent(autoLoginUser_file, opponents, reward_key, weak_threshold=800):
     candidates_weak = []
     candidates_same_team = []
     candidates_all = []
 
-    opponents_in_my_guild = get_duel_opponents_in_my_guild(autoLoginUser_file)
+    opponents_in_my_guild = get_opponents_in_my_guild(autoLoginUser_file, opponents)
 
     my_stats = get_stats(get_json_value(autoLoginUser_file, "data.character"))
 
@@ -807,7 +787,7 @@ def get_best_duel_opponent(autoLoginUser_file, opponents, weak_threshold=800):
         return None
 
     if candidates_weak:
-        return max(candidates_weak, key=lambda x: x["honor"])
+        return max(candidates_weak, key=lambda x: x[reward_key])
 
     if candidates_same_team:
         return min(candidates_same_team, key=lambda x: x["stats"])

@@ -59,9 +59,9 @@ def sync_tower_event(request_file, body_file, autoLoginUser_file,
     return response
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders2.txt"
-    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody2.txt"
-    autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser2.json"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
     contants_filepath = f"{BASE_DIR}/src/constants.json"
     config_filepath = f"{BASE_DIR}/src/config.py"
@@ -85,8 +85,11 @@ if __name__ == "__main__":
     # af = 1e30
     # ag = 1e33
     # ah = 1e36
+    # ai = 1e39
+    # aj = 1e42
+    # ak = 1e45
     print("before:", economy_data)
-    economy_data[0]["bank_amount"] += 100e36
+    economy_data[0]["bank_amount"] += 100e45
     print("after:", economy_data)
 
     response = sync_tower_event(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,

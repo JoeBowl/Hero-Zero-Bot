@@ -221,51 +221,30 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
                     print("Not enough league stamina")
                 break
             
-            # league_opponents_raw  = bot.get_json_value(autoLoginUser_file, "data.league_opponents").copy()
-            # opponents = [op["opponent"] for op in league_opponents_raw]
-            
-            candidates_weak = []
-            candidates_same_team = []
-            candidates_all = []
-            
             bot.get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
-            opponents_in_my_guild = bot.get_league_opponents_in_my_guild(autoLoginUser_file)
-            my_stats = bot.get_stats(
-                bot.get_json_value(autoLoginUser_file, "data.character")
-            )
+            league_opponents_raw  = bot.get_json_value(autoLoginUser_file, "data.league_opponents").copy()
+            opponents = [op["opponent"] for op in league_opponents_raw]
             
-            # Start by checking for weak characters that are not in the same guild as me
-            for op in bot.get_json_value(autoLoginUser_file, "data.league_opponents"):
-                if op["opponent"]["name"].startswith("deleted"):
-                    continue
-                
-                op_stats = bot.get_stats(op["opponent"])
-                
-                is_guild = op["opponent"]["name"] in opponents_in_my_guild
-                
-                entry = op.copy()
-                entry["stats"] = op_stats
-                
-                candidates_all.append(entry)
-                
-                if is_guild:
-                    candidates_same_team.append(entry)
-                elif my_stats - op_stats >= 800:
-                    candidates_weak.append(entry)
-                    
-            if len(candidates_weak) > 0:
-                selected = max(candidates_weak, key=lambda x: x["opponent"]["league_points"])
-            elif candidates_same_team:
-                selected = min(candidates_same_team, key=lambda x: x["stats"])
-            else:
-                selected = min(candidates_all, key=lambda x: x["stats"])
-                
-            # print(selected["opponent"]["name"])
-            # print(selected["opponent"]["id"])
-            # break
-        
-            bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            while opponents:
+                selected = bot.get_best_duel_opponent(autoLoginUser_file, opponents, reward_key="league_points")
+
+                if not selected:
+                    raise RuntimeError("No valid opponents available")
+            
+                bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            
+                # if response.get("error") == "errStartDuelAttackCurrentlyNotAllowed":
+                #     # Remove this opponent and retry
+                #     opponents = [
+                #         op for op in opponents
+                #         if op["id"] != selected["id"]
+                #     ]
+                #     continue
+            
+                # Success
+                break
+            
             bot.print_league_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
             
@@ -297,7 +276,7 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=480, log_filep
             opponents = bot.get_json_value(autoLoginUser_file, "data.opponents").copy()
             
             while opponents:
-                selected = bot.get_best_duel_opponent(autoLoginUser_file, opponents)
+                selected = bot.get_best_duel_opponent(autoLoginUser_file, opponents, reward_key="honor")
 
                 if not selected:
                     raise RuntimeError("No valid opponents available")
