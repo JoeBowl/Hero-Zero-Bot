@@ -1146,7 +1146,7 @@ def merge_json(json1, json2, path=None):
             return json2  # replace completely
         
     # Special case: items and daily_bonus_rewards → append lists (no duplicates by id)
-    elif path in (["data", "items"], ["data", "daily_bonus_rewards"]) and isinstance(json1, list) and isinstance(json2, list):
+    elif path in (["data", "items"], ["data", "daily_bonus_rewards"], ["data", "hideout_rooms"]) and isinstance(json1, list) and isinstance(json2, list):
         indexed = {item["id"]: item for item in json1}
     
         for item in json2:

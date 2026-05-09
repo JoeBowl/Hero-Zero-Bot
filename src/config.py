@@ -1,16 +1,17 @@
 COOLDOWN = 5
 
 # Actions performed by the bot
-do_quest = True
-do_training = False
-do_duel = True
-do_league_duel = True
-do_collect_hideout_rooms = True
-do_sell_inventory = True
-do_world_boss = False
-do_claim_treasure_event = True
+quests                = True
+train                 = True
+duels                 = True
+league_duels          = True
+collect_hideout_rooms = True
+sell_inventory        = True
+world_boss            = False
+claim_treasure_events = True
+buy_boosters          = True
 
-# What to sell if do_sell_inventory is True
+# What to sell if sell_inventory is True
 sell_common = True
 sell_rare = True
 sell_epic = False

@@ -26,43 +26,48 @@ if __name__ == "__main__":
         tasks.Task("Quest", 
             partial(tasks.do_quest,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath, 
-                config.REWARD_WEIGHTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.do_quest else None,
+                config.REWARD_WEIGHTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.quests else None,
+        
+        tasks.Task("Training",
+            partial(tasks.do_training,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
+                config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.train else None,
         
         tasks.Task("Duel",
             partial(tasks.do_duel,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-                log_filepath=log_filepath, verbose=True)) if config.do_duel else None,
+                log_filepath=log_filepath, verbose=True)) if config.duels else None,
 
         tasks.Task("LeagueDuel",
             partial(tasks.do_league_duel,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-                log_filepath=log_filepath, verbose=True)) if config.do_league_duel else None,
+                log_filepath=log_filepath, verbose=True)) if config.league_duels else None,
 
         tasks.Task("CollectHideoutRooms", 
             partial(tasks.do_collect_hideout_rooms,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-                cooldown=0.2, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
+                cooldown=0.2, log_filepath=log_filepath, verbose=True)) if config.collect_hideout_rooms else None,
         
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
                 sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
-                log_filepath=log_filepath, verbose=True)) if config.do_sell_inventory else None,
-        
-        tasks.Task("Training",
-            partial(tasks.do_training,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
-                config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.do_training else None,
+                log_filepath=log_filepath, verbose=True)) if config.sell_inventory else None,
         
         tasks.Task("WorldBoss",
             partial(tasks.do_fight_world_boss,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                COOLDOWN=0, log_filepath=log_filepath, verbose=True)) if config.do_world_boss else None,
+                COOLDOWN=0, log_filepath=log_filepath, verbose=True)) if config.world_boss else None,
         
         tasks.Task("ClaimTreasureEventFreeRewards",
             partial(tasks.do_claim_free_treasure_revel_items,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                log_filepath=log_filepath, verbose=True)) if config.do_claim_treasure_event else None,
+                log_filepath=log_filepath, verbose=True)) if config.claim_treasure_events else None,
+        
+        tasks.Task("BuyBoosters",
+            partial(tasks.do_buy_boosters,
+                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                    log_filepath=log_filepath, verbose=True)) if config.buy_boosters else None
     ]
     task_list = [t for t in task_list if t is not None]
 
