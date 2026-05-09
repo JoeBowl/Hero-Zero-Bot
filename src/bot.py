@@ -498,6 +498,10 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
 
             if not is_collectible(hideout_room, collected_room_ids, rooms_to_collect):
                 continue
+            
+            if hideout_room.get("current_resource_amount") == 0:
+                collected_room_ids.add(room_id)
+                continue
 
             response = collect_hideout_room_request(room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
 
