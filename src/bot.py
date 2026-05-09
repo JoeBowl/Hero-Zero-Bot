@@ -362,8 +362,8 @@ def start_quest(best_quest, request_file, body_file, autoLoginUser_file, log_fil
     return response
 
 def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=None, verbose=False):
-    start_time = time.time()
-    while time.time() - start_time < 5*cooldown:
+    max_tries = 5
+    for i in range(max_tries):
         response = check_for_quest_complete_request(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath)
         
         if not response['error']:  # handles None or ""
@@ -386,6 +386,7 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
             "quest_id": "0"
         },
         success_msg="Quest completion verified",
+        ignore_errors=["errFinishNotYetCompleted"], 
         log_filepath=log_filepath,
         verbose=verbose
     )
