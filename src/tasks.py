@@ -247,7 +247,8 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
             
             bot.print_league_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
-            
+        
+        # TODO: If the fight started, was checked, but wasn't claimed, it will throw an error if it's checked again
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     

@@ -371,6 +371,16 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
         elif response['error'] == "errFinishNotYetCompleted":
             print(f"Quest not finished yet. Waiting {cooldown} seconds before retrying...")
             time.sleep(cooldown)
+        elif response['error'] == "errFinishInvalidStatus":
+            active_quest_id = get_active_quest_id(autoLoginUser_file)
+            quests = get_json_value(autoLoginUser_file, "data.quests")
+            
+            active_quest_stage = next(
+                (quest["stage"] for quest in quests if quest["id"] == active_quest_id),
+                None
+            )
+            
+            set_character_stage(active_quest_stage, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         else:
             raise RuntimeError(f"Unexpected error: {response['error']}")
     
@@ -386,7 +396,7 @@ def check_for_quest_complete_request(request_file, body_file, autoLoginUser_file
             "quest_id": "0"
         },
         success_msg="Quest completion verified",
-        ignore_errors=["errFinishNotYetCompleted"], 
+        ignore_errors=["errFinishNotYetCompleted", "errFinishInvalidStatus"], 
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -1083,6 +1093,21 @@ def finish_world_boss_attack(request_file, body_file, autoLoginUser_file, worldb
         log_filepath=log_filepath,
         verbose=verbose
     )
+
+def set_character_stage(stage, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "setCharacterStage",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "stage": str(stage)
+        },
+        success_msg=f"Character stage set to {stage}",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+    return response
 
 def get_json_value(filepath, path=None, default=None):
     with open(filepath, 'r') as f:
