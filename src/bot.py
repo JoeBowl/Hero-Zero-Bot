@@ -69,7 +69,7 @@ def get_energy_voucher(autoLoginUser_file):
     
     return None
 
-def get_league_rewards(autoLoginUser_file, verbose=False):
+def print_league_rewards(autoLoginUser_file, verbose=False):
     with open(autoLoginUser_file, 'r') as f:
         data = json.load(f)
     
@@ -94,7 +94,7 @@ def get_league_rewards(autoLoginUser_file, verbose=False):
     
     return winner == me, rewards
 
-def get_duel_rewards(autoLoginUser_file, verbose=False):
+def print_duel_rewards(autoLoginUser_file, verbose=False):
     with open(autoLoginUser_file, 'r') as f:
         data = json.load(f)
     
@@ -168,8 +168,8 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
     }
 
     if verbose:
-        print(f"{'ID':<8} {'Cost':<8} {'Score':<15} {'Rewards':<15}")
-        print("-" * 85)
+        print(f"{'ID':<8} {'Cost':<8} {'Diff':<6} {'Score':<7} {'Rewards':<15}")
+        print("-" * 100)
 
     # Loop through each quest in the JSON data
     for quest in get_json_value(autoLoginUser_file, quest_type):
@@ -207,7 +207,7 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
             # Unknown -> wait for further inspection
             if (key, value) not in weights and (key, None) not in weights:
                 raise RuntimeError(
-                    f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}\n"
+                    f"{quest_id:<8} {quest_cost:<8.0f} {score:<7.2f} {rewards}\n"
                     f"Reward weight not defined for key={key}, value={value}"
                 )
 
@@ -215,16 +215,17 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
         score = score / (quest_cost*60)
 
         # Add quest type multiplier
+        fight_difficulty = quest["fight_difficulty"]
         difficulty_keys = {
             0: ("timer", None),
             1: ("fight_difficulty_1", None),
             2: ("fight_difficulty_2", None),
             3: ("fight_difficulty_3", None)
         }
-        score *= weights[difficulty_keys[quest["fight_difficulty"]]]
+        score *= weights[difficulty_keys[fight_difficulty]]
 
         if verbose:
-            print(f"{quest_id:<8} {quest_cost:<8.0f} {score:<15.2f} {rewards}")
+            print(f"{quest_id:<8} {quest_cost:<8.0f} {fight_difficulty:<6} {score:<7.2f} {rewards}")
         
         if quest["energy_cost"] > max_energy:
             continue
@@ -234,7 +235,8 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
             best_quest["score"] = score
 
     if verbose:
-        print(f"Best quest: {best_quest['id']} | Cost: {best_quest['energy_cost']} energy | Rewards: {best_quest['rewards']}")
+        print(f"Best quest: {best_quest['id']} | Cost: {best_quest['energy_cost']} energy | "
+              f"Difficulty: {best_quest['fight_difficulty']} | Rewards: {best_quest['rewards']}")
 
     return best_quest
 
@@ -775,6 +777,43 @@ def is_there_a_worldboss_event_going_on(autoLoginUser_file):
             return False
     return True
 
+def get_best_duel_opponent(autoLoginUser_file, opponents, weak_threshold=800):
+    candidates_weak = []
+    candidates_same_team = []
+    candidates_all = []
+
+    opponents_in_my_guild = get_duel_opponents_in_my_guild(autoLoginUser_file)
+
+    my_stats = get_stats(get_json_value(autoLoginUser_file, "data.character"))
+
+    for op in opponents:
+        if op["name"].startswith("deleted"):
+            continue
+
+        op_stats = get_stats(op)
+        is_guild = op["name"] in opponents_in_my_guild
+
+        entry = op.copy()
+        entry["stats"] = op_stats
+
+        candidates_all.append(entry)
+
+        if is_guild:
+            candidates_same_team.append(entry)
+        elif my_stats - op_stats >= weak_threshold:
+            candidates_weak.append(entry)
+
+    if not candidates_all:
+        return None
+
+    if candidates_weak:
+        return max(candidates_weak, key=lambda x: x["honor"])
+
+    if candidates_same_team:
+        return min(candidates_same_team, key=lambda x: x["stats"])
+
+    return min(candidates_all, key=lambda x: x["stats"])
+
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     response = perform_request(
         "getLeagueOpponents",
@@ -856,6 +895,7 @@ def start_duel(character_id, request_file, body_file, autoLoginUser_file, log_fi
             "server_id": "pt13"
         },
         success_msg="Duel started successfully",
+        ignore_errors=["errStartDuelAttackCurrentlyNotAllowed"], 
         log_filepath=log_filepath,
         verbose=verbose
     )

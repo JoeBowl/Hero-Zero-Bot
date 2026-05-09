@@ -41,7 +41,7 @@ if __name__ == "__main__":
         tasks.Task("CollectHideoutRooms", 
             partial(tasks.do_collect_hideout_rooms,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-                cooldown=0.75, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
+                cooldown=0.2, log_filepath=log_filepath, verbose=True)) if config.do_collect_hideout_rooms else None,
         
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,

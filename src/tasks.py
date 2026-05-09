@@ -122,7 +122,6 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
 
     while True:
         training_quest_id = bot.get_json_value(autoLoginUser_file, "data.training.training_quest_id")
-        print(training_quest_id)
         if training_quest_id == 0 or training_quest_id == None:
             
             current_time = int(datetime.datetime.now().timestamp())
@@ -168,9 +167,13 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
         bot.claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         
         training_stars_thresholds = [0.1, 0.4, 1.0]
+        new_current_energy = bot.get_json_value(autoLoginUser_file, "data.character.training_energy")
         new_current_progress = bot.get_json_value(autoLoginUser_file, "data.training.energy")
-        # reward_value = json.loads(best_training_quest["rewards"])["training_progress"]
-        # print("progress:", current_progress, current_progress+reward_value, total_progress, current_progress/total_progress, (current_progress+reward_value)/total_progress)
+        print(f"training_quest_energy: {new_current_energy} | "
+            f"progress: {new_current_progress}/{total_progress} |"
+            f"time_left: {time_left//60:02d}:{time_left%60:02d}"
+        )
+        
         for t in training_stars_thresholds:
             if current_progress < t * total_progress and new_current_progress >= t * total_progress:
                 bot.claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
@@ -218,6 +221,9 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
                     print("Not enough league stamina")
                 break
             
+            # league_opponents_raw  = bot.get_json_value(autoLoginUser_file, "data.league_opponents").copy()
+            # opponents = [op["opponent"] for op in league_opponents_raw]
+            
             candidates_weak = []
             candidates_same_team = []
             candidates_all = []
@@ -260,7 +266,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
             # break
         
             bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            bot.get_league_rewards(autoLoginUser_file, verbose=verbose)
+            bot.print_league_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
             
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
@@ -288,45 +294,28 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=480, log_filep
                     print("Not enough duel stamina")
                 break
             
-            candidates_weak = []
-            candidates_same_team = []
-            candidates_all = []
-            opponents_in_my_guild = bot.get_duel_opponents_in_my_guild(autoLoginUser_file)
-            my_stats = bot.get_stats(
-                bot.get_json_value(autoLoginUser_file, "data.character")
-            )
+            opponents = bot.get_json_value(autoLoginUser_file, "data.opponents").copy()
             
-            # Start by checking for weak characters that are not in the same guild as me
-            for op in bot.get_json_value(autoLoginUser_file, "data.opponents"):
-                if op["name"].startswith("deleted"):
+            while opponents:
+                selected = bot.get_best_duel_opponent(autoLoginUser_file, opponents)
+
+                if not selected:
+                    raise RuntimeError("No valid opponents available")
+            
+                response = bot.start_duel(selected["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            
+                if response.get("error") == "errStartDuelAttackCurrentlyNotAllowed":
+                    # Remove this opponent and retry
+                    opponents = [
+                        op for op in opponents
+                        if op["id"] != selected["id"]
+                    ]
                     continue
+            
+                # Success
+                break
                 
-                op_stats = bot.get_stats(op)
-                
-                is_guild = op["name"] in opponents_in_my_guild
-                
-                entry = op.copy()
-                entry["stats"] = op_stats
-                
-                candidates_all.append(entry)
-                
-                if is_guild:
-                    candidates_same_team.append(entry)
-                elif my_stats - op_stats >= 800:
-                    candidates_weak.append(entry)
-                    
-            if not candidates_all:
-                raise RuntimeError("do_duel: No opponents available")
-                    
-            if len(candidates_weak) > 0:
-                selected = max(candidates_weak, key=lambda x: x["honor"])
-            elif candidates_same_team:
-                selected = min(candidates_same_team, key=lambda x: x["stats"])
-            else:
-                selected = min(candidates_all, key=lambda x: x["stats"])
-                
-            bot.start_duel(selected["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-            bot.get_duel_rewards(autoLoginUser_file, verbose=verbose)
+            bot.print_duel_rewards(autoLoginUser_file, verbose=verbose)
             time.sleep(1)
             
         bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
