@@ -232,7 +232,7 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
                 if not selected:
                     raise RuntimeError("No valid opponents available")
             
-                bot.start_league_fight(selected["opponent"]["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+                bot.start_league_fight(selected["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
             
                 # if response.get("error") == "errStartDuelAttackCurrentlyNotAllowed":
                 #     # Remove this opponent and retry
