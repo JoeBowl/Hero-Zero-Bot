@@ -13,11 +13,11 @@ import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
-    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders2.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody2.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
-    contants_filepath = f"{BASE_DIR}/src/constants.json"
+    constants_filepath = f"{BASE_DIR}/src/constants.json"
     config_filepath = f"{BASE_DIR}/src/config.py"
 
     COOLDOWN = config.COOLDOWN
@@ -25,12 +25,12 @@ if __name__ == "__main__":
     task_list  = [
         tasks.Task("Quest", 
             partial(tasks.do_quest,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath, 
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath, 
                 config.REWARD_WEIGHTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.quests else None,
         
         tasks.Task("Training",
             partial(tasks.do_training,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
                 config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.train else None,
         
         tasks.Task("Duel",
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, contants_filepath,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
                 sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
                 log_filepath=log_filepath, verbose=True)) if config.sell_inventory else None,
         

@@ -4,7 +4,7 @@ import datetime
 import hashlib
 import json
 import time
-import numpy as np
+import math
 from functools import reduce
 import operator
 
@@ -311,7 +311,7 @@ def score_state(autoLoginUser_file, contants_data, override_item=None):
 
         for threshold, bonus in bonuses.items():
             if count >= int(threshold):
-                total += int(np.floor(bonus["value"] * characters_stats[bonus["type"] - 1]))
+                total += int(math.floor(bonus["value"] * characters_stats[bonus["type"] - 1]))
 
     return total
 
