@@ -466,3 +466,41 @@ def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=No
     tomorrow = now.date() + datetime.timedelta(days=1)
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return (reset_time - now).total_seconds()
+
+# TODO: Confirm this is working
+def do_check_guild_battles(request_file, body_file, autoLoginUser_file, COOLDOWN=14400, log_filepath=None, verbose=False):
+    # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    finished_attack_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_battle_attack_id", 0)
+    finished_defense_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_battle_defense_id", 0)
+    finished_dungeon_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_dungeon_battle_id", 0)
+    
+    if finished_attack_id:
+        bot.claim_guild_battle_reward(finished_attack_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    if finished_defense_id:
+        bot.claim_guild_battle_reward(finished_defense_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    if finished_dungeon_id:
+        bot.claim_guild_dungeon_battle_reward(finished_dungeon_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+    my_character_id = bot.get_json_value(autoLoginUser_file, "data.character.id", 0)
+    
+    pending_attack_id = bot.get_json_value(autoLoginUser_file, "data.guild.pending_guild_battle_attack_id", 0)
+    pending_defense_id = bot.get_json_value(autoLoginUser_file, "data.guild.pending_guild_battle_defense_id", 0)
+    pending_dungeon_id = bot.get_json_value(autoLoginUser_file, "data.guild.pending_guild_dungeon_battle_attack_id", 0)
+
+    pending_attack_character_ids = json.loads(bot.get_json_value(autoLoginUser_file, "data.pending_guild_battle_attack.character_ids", "[]"))
+    pending_defense_character_ids = json.loads(bot.get_json_value(autoLoginUser_file, "data.pending_guild_battle_defense.character_ids", "[]"))
+    pending_dungeon_character_ids = json.loads(bot.get_json_value(autoLoginUser_file, "data.pending_guild_dungeon_battle.character_ids", "[]"))
+
+    if pending_attack_id and not my_character_id in pending_attack_character_ids:
+        bot.join_guild_battle(True, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    if pending_defense_id and not my_character_id in pending_defense_character_ids:
+        bot.join_guild_battle(False, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    
+    if pending_dungeon_id and not my_character_id in pending_dungeon_character_ids:
+        bot.join_guild_dungeon_battle(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+    return COOLDOWN

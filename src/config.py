@@ -10,6 +10,7 @@ sell_inventory        = True
 world_boss            = False
 claim_treasure_events = True
 buy_boosters          = True
+guild_battles         = False
 
 # What to sell if sell_inventory is True
 sell_common = True

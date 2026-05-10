@@ -134,7 +134,6 @@ def get_opponents_in_my_guild(autoLoginUser_file, opponents):
     return list(opponents_names & guild_members_names)
 
 def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "data.quests", max_energy=1e10, verbose=False):
-    inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
     
     with open(constants_file, "r", encoding="utf-8") as f:
@@ -663,7 +662,6 @@ def get_best_training(autoLoginUser_file, constants_file, weights, check_energy=
     with open(constants_file, "r", encoding="utf-8") as f:
         contants_data = json.load(f)
     
-    inventory = get_json_value(autoLoginUser_file, "data.inventory")
     items = get_json_value(autoLoginUser_file, "data.items")
 
     best_training = {
@@ -1107,6 +1105,82 @@ def buy_booster(action, booster_id, duration, request_file, body_file, autoLogin
         success_msg=f"Booster {booster_id} purchased successfully",
         log_filepath=log_filepath,
         verbose=verbose
+    )
+
+# TODO: Confirm the following requests are working:
+# - get_guild_log
+# - claim_guild_battle_reward
+# - claim_guild_dungeon_battle_rewar
+# - join_guild_battle
+# - join_guild_dungeon_battle 
+def get_guild_log(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        action="getGuildLog",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "init_request": "false",
+            "rct": "1"
+        },
+        success_msg="Guild log fetched successfully",
+        log_filepath=log_filepath,
+        verbose=verbose,
+    )
+
+def claim_guild_battle_reward(battle_id, request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
+    return perform_request(
+        action="claimGuildBattleReward",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "discard_item": "true" if discard_item else "false",
+            "guild_battle_id": str(battle_id),
+        },
+        success_msg=f"Guild battle rewards claimed successfully (id: {battle_id})",
+        log_filepath=log_filepath,
+        verbose=verbose,
+    )
+
+def claim_guild_dungeon_battle_reward(battle_id, request_file, body_file, autoLoginUser_file, discard_item=False, log_filepath=None, verbose=False):
+    return perform_request(
+        action="claimGuildDungeonBattleReward",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "discard_item": "true" if discard_item else "false",
+            "guild_dungeon_battle_id": str(battle_id),
+        },
+        success_msg=f"Guild dungeon battle rewards claimed successfully (id: {battle_id})",
+        log_filepath=log_filepath,
+        verbose=verbose,
+    )
+
+def join_guild_battle(attack, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        action="joinGuildBattle",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        custom_body={
+            "attack": "true" if attack else "false"
+        },
+        success_msg=f"Joined guild battle as {'attacker' if attack else 'defender'}",
+        log_filepath=log_filepath,
+        verbose=verbose,
+    )
+
+def join_guild_dungeon_battle(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        action="joinGuildDungeonBattle",
+        request_file=request_file,
+        body_file=body_file,
+        autoLoginUser_file=autoLoginUser_file,
+        success_msg="Guild dungeon battle joined successfully",
+        log_filepath=log_filepath,
+        verbose=verbose,
     )
 
 def get_json_value(filepath, path=None, default=None):

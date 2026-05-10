@@ -13,8 +13,8 @@ import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders2.txt"
-    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody2.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
     constants_filepath = f"{BASE_DIR}/src/constants.json"
@@ -67,7 +67,12 @@ if __name__ == "__main__":
         tasks.Task("BuyBoosters",
             partial(tasks.do_buy_boosters,
                     defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                    log_filepath=log_filepath, verbose=True)) if config.buy_boosters else None
+                    log_filepath=log_filepath, verbose=True)) if config.buy_boosters else None,
+        
+        tasks.Task("GuildBattles",
+            partial(tasks.do_check_guild_battles,
+                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                    COOLDOWN=14400, log_filepath=log_filepath, verbose=True)) if config.guild_battles else None,
     ]
     task_list = [t for t in task_list if t is not None]
 
