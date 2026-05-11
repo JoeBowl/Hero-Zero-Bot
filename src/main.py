@@ -51,6 +51,7 @@ if __name__ == "__main__":
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
+                sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
                 log_filepath=log_filepath, verbose=True)) if config.sell_inventory else None,
         
         tasks.Task("WorldBoss",

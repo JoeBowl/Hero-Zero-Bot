@@ -312,8 +312,9 @@ def do_duel(request_file, body_file, autoLoginUser_file, constants_file, COOLDOW
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, log_filepath=None, verbose=False):
-    return bot.sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=verbose)
+def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
+    return bot.sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=COOLDOWN,
+                                    sell_common=sell_common, sell_rare=sell_rare, sell_epic=sell_epic, log_filepath=log_filepath, verbose=verbose)
 
 def do_fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, log_filepath=None, verbose=False):
     if not bot.is_there_a_worldboss_event_going_on(autoLoginUser_file):
