@@ -7,6 +7,7 @@ import time
 import math
 from functools import reduce
 import operator
+import src.config as config
 
 def get_current_energy(autoLoginUser_file):
     with open(autoLoginUser_file, 'r') as file:
@@ -380,6 +381,7 @@ def check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldo
             )
             
             set_character_stage(active_quest_stage, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            time.sleep(5)
         else:
             raise RuntimeError(f"Unexpected error: {response['error']}")
     
@@ -413,6 +415,7 @@ def claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepat
         },
         # headers_override={"TE": "trailers"},
         success_msg="Quest reward successfully collected",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -494,15 +497,18 @@ def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0
 
         for hideout_room in hideout_rooms:
             room_id = hideout_room.get("id")
+            room_identifier = hideout_room.get("identifier")
 
             if not is_collectible(hideout_room, collected_room_ids, rooms_to_collect):
                 continue
             
-            if hideout_room.get("current_resource_amount") == 0:
+            if hideout_room.get("current_resource_amount") == 0 and room_identifier != "xp_production":
                 collected_room_ids.add(room_id)
                 continue
 
-            response = collect_hideout_room_request(room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            response = collect_hideout_room_request(room_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=False)
+            if verbose:
+                print(f"Hideout room {room_id}: {room_identifier} successfully collected")
 
             error = response.get("error")
             if error == "errCollectActivityResultInvalidStatus":
@@ -631,18 +637,22 @@ def redeem_energy_voucher(request_file, body_file, autoLoginUser_file, log_filep
 
     return redeem_response
 
-def claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):     
+def claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=None, verbose=False):     
     # Load rewards list
     daily_bonus_rewards = get_json_value(autoLoginUser_file, "data.daily_bonus_rewards")
     
     if not daily_bonus_rewards:
-        return
+        return {"error": ""}
     
+    response = {"error": ""}
     # Claim rewards
     for reward in daily_bonus_rewards:
         if reward["status"] == 1:
-            claim_daily_bonus_reward(reward["id"], request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        
+            response = claim_with_inventory_retry(claim_daily_bonus_reward, reward["id"], request_file, body_file, autoLoginUser_file, constants_file=constants_file, log_filepath=log_filepath, verbose=verbose)
+            if response.get("error"):
+                return response
+
+    return response
 def training_rewards(training):
     total = {}
 
@@ -807,6 +817,84 @@ def get_best_duel_opponent(autoLoginUser_file, opponents, reward_key, weak_thres
 
     return min(candidates_all, key=lambda x: x["stats"])
 
+def claim_with_inventory_retry(claim_func, *args, constants_file=None, sell_common=None, sell_rare=None, sell_epic=None, log_filepath=None, verbose=False):
+    if constants_file is None and len(args) >= 4:
+        constants_file = args[-1]
+        args = args[:-1]
+
+    if constants_file is None:
+        raise RuntimeError("claim_with_inventory_retry requires constants_file")
+
+    if sell_common is None:
+        sell_common = config.sell_common
+    if sell_rare is None:
+        sell_rare = config.sell_rare
+    if sell_epic is None:
+        sell_epic = config.sell_epic
+
+    response = claim_func(*args, log_filepath=log_filepath, verbose=verbose)
+
+    if response.get("error") == "errInventoryNoEmptySlot":
+        if verbose:
+            print("Inventory full. Selling items and retrying claim...")
+
+        request_file = args[-3]
+        body_file = args[-2]
+        autoLoginUser_file = args[-1]
+
+        sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, sell_common=sell_common, sell_rare=sell_rare, sell_epic=sell_epic, log_filepath=log_filepath, verbose=verbose)
+
+        response = claim_func(*args, log_filepath=log_filepath, verbose=verbose)
+
+        if response.get("error"):
+            raise RuntimeError(f"{claim_func.__name__} failed after inventory cleanup: {response['error']}")
+
+    return response
+
+
+def sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
+    inventory = get_json_value(autoLoginUser_file, "data.inventory")
+    items = get_json_value(autoLoginUser_file, "data.items")
+
+    with open(constants_file, "r", encoding="utf-8") as f:
+        contants_data = json.load(f)
+
+    allowed_qualities = set()
+    if sell_common:
+        allowed_qualities.add(1)
+    if sell_rare:
+        allowed_qualities.add(2)
+    if sell_epic:
+        allowed_qualities.add(3)
+
+    if not allowed_qualities:
+        return COOLDOWN
+
+    bag_item_ids = {
+        value for key, value in inventory.items()
+        if key.startswith("bag_item") and value not in (0, -1)
+    }
+
+    for item in items:
+        if item["id"] not in bag_item_ids:
+            continue
+
+        if item.get("quality") not in allowed_qualities:
+            continue
+
+        upgrade_value = get_upgrade_value(item["id"], autoLoginUser_file, contants_data, verbose=False)
+        if upgrade_value >= 0:
+            continue
+
+        sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
+
+        if verbose:
+            print(f"Sold item {item['id']} {item['identifier']} Total {upgrade_value}")
+
+        time.sleep(0.2)
+
+    return COOLDOWN
+
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     return perform_request(
         "getLeagueOpponents",
@@ -855,6 +943,7 @@ def claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_
             "discard_item": "false"
         },
         success_msg="League fight rewards claimed successfully",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -895,6 +984,7 @@ def check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_fil
         body_file,
         autoLoginUser_file,
         success_msg="Duel completion checked successfully",
+        ignore_errors=["errFinishInvalidStatus"], 
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -910,6 +1000,7 @@ def claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath
             "refresh_inventory": "true"
         },
         success_msg="Duel rewards claimed successfully",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -951,6 +1042,7 @@ def claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, lo
         body_file=body_file,
         autoLoginUser_file=autoLoginUser_file,
         success_msg="Training quest rewards claimed successfully",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -965,6 +1057,7 @@ def claim_training_star(request_file, body_file, autoLoginUser_file, discard_ite
             "discard_item": "false",
         },
         success_msg="Training star claimed successfully",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -1005,6 +1098,7 @@ def claim_daily_bonus_reward(reward_id, request_file, body_file, autoLoginUser_f
             "discard_item": "false"
         },
         success_msg=f"Daily bonus reward {reward_id} claimed successfully",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose
     )
@@ -1139,6 +1233,7 @@ def claim_guild_battle_reward(battle_id, request_file, body_file, autoLoginUser_
             "guild_battle_id": str(battle_id),
         },
         success_msg=f"Guild battle rewards claimed successfully (id: {battle_id})",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose,
     )
@@ -1154,6 +1249,7 @@ def claim_guild_dungeon_battle_reward(battle_id, request_file, body_file, autoLo
             "guild_dungeon_battle_id": str(battle_id),
         },
         success_msg=f"Guild dungeon battle rewards claimed successfully (id: {battle_id})",
+        ignore_errors=["errInventoryNoEmptySlot"],
         log_filepath=log_filepath,
         verbose=verbose,
     )

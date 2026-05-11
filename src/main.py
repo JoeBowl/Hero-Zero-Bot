@@ -35,12 +35,12 @@ if __name__ == "__main__":
         
         tasks.Task("Duel",
             partial(tasks.do_duel,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
                 log_filepath=log_filepath, verbose=True)) if config.duels else None,
 
         tasks.Task("LeagueDuel",
             partial(tasks.do_league_duel,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
                 log_filepath=log_filepath, verbose=True)) if config.league_duels else None,
 
         tasks.Task("CollectHideoutRooms", 
@@ -51,7 +51,6 @@ if __name__ == "__main__":
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
-                sell_common=config.sell_common, sell_rare=config.sell_rare, sell_epic=config.sell_epic, 
                 log_filepath=log_filepath, verbose=True)) if config.sell_inventory else None,
         
         tasks.Task("WorldBoss",
@@ -71,7 +70,7 @@ if __name__ == "__main__":
         
         tasks.Task("GuildBattles",
             partial(tasks.do_check_guild_battles,
-                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
                     COOLDOWN=14400, log_filepath=log_filepath, verbose=True)) if config.guild_battles else None,
     ]
     task_list = [t for t in task_list if t is not None]

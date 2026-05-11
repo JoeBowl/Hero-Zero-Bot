@@ -28,6 +28,10 @@ class Task:
 
 def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD_WEIGHTS, COOLDOWN=5, log_filepath=None, verbose=False):
     active_quest_id = bot.get_active_quest_id(autoLoginUser_file)
+    active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
+    
+    if active_duel_id != 0:
+        return 60
 
     if active_quest_id == 0:
         best_quest = bot.get_best_quest(autoLoginUser_file, constants_file, REWARD_WEIGHTS, verbose=verbose)
@@ -65,10 +69,9 @@ def do_quest(request_file, body_file, autoLoginUser_file, constants_file, REWARD
             return ts_complete - ts_now
 
     bot.check_for_quest_complete(request_file, body_file, autoLoginUser_file, cooldown=60, log_filepath=log_filepath, verbose=verbose)
-    bot.claim_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_with_inventory_retry(bot.claim_quest_rewards, request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
     
-    # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
             
     return COOLDOWN  # recheck for a new quest in COOLDOWN secs
 
@@ -164,7 +167,7 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
                 return min(time_left_for_quest, time_left_for_training_end + 5)
             
             bot.start_training_quest(best_training_quest, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        bot.claim_training_quest_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_training_quest_rewards, request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
         
         training_stars_thresholds = [0.1, 0.4, 1.0]
         new_current_energy = bot.get_json_value(autoLoginUser_file, "data.character.training_energy")
@@ -176,7 +179,7 @@ def do_training(request_file, body_file, autoLoginUser_file, constants_file, REW
         
         for t in training_stars_thresholds:
             if current_progress < t * total_progress and new_current_progress >= t * total_progress:
-                bot.claim_training_star(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+                bot.claim_with_inventory_retry(bot.claim_training_star, request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
         
         if new_current_progress >= total_progress:
             break
@@ -190,7 +193,7 @@ def do_collect_hideout_rooms(request_file, body_file, autoLoginUser_file, cooldo
 
     return 1800
 
-def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, log_filepath=None, verbose=False):
+def do_league_duel(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=7200, log_filepath=None, verbose=False):
     league_group_id = bot.get_json_value(autoLoginUser_file, "data.character.league_group_id")
     if league_group_id == 0:
         if verbose:
@@ -250,17 +253,17 @@ def do_league_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=7200, l
         
         # TODO: If the fight started, was checked, but wasn't claimed, it will throw an error if it's checked again
         bot.check_for_league_fight_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        bot.claim_league_fight_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_league_fight_rewards, request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=480, log_filepath=None, verbose=False):
+def do_duel(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=480, log_filepath=None, verbose=False):
     while True:
         bot.get_duel_opponents(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
         active_duel_id = bot.get_json_value(autoLoginUser_file, "data.character.active_duel_id")
@@ -299,61 +302,18 @@ def do_duel(request_file, body_file, autoLoginUser_file, COOLDOWN=480, log_filep
             time.sleep(1)
             
         bot.check_for_duel_complete(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-        bot.claim_duel_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_duel_rewards, request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
     
     # Claim daily reward, if any
-    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.claim_daily_bonus_rewards(request_file, body_file, autoLoginUser_file, constants_file, log_filepath=log_filepath, verbose=verbose)
     
     now = datetime.datetime.now()
     tomorrow = now.date() + datetime.timedelta(days=1)
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return min(COOLDOWN, (reset_time - now).total_seconds())
 
-def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, sell_common=False, sell_rare=False, sell_epic=False, log_filepath=None, verbose=False):
-    inventory = bot.get_json_value(autoLoginUser_file, "data.inventory")
-    items = bot.get_json_value(autoLoginUser_file, "data.items")
-    
-    # Load constants data
-    with open(constants_file, "r", encoding="utf-8") as f:
-        contants_data = json.load(f)
-    
-    allowed_qualities = set()
-    if sell_common:
-        allowed_qualities.add(1)
-    if sell_rare:
-        allowed_qualities.add(2)
-    if sell_epic:
-        allowed_qualities.add(3)
-    
-    if not allowed_qualities:
-        return COOLDOWN
-    
-    # Collect bag item IDs
-    bag_item_ids = {
-        value for key, value in inventory.items()
-        if key.startswith("bag_item") and value not in (0, -1)
-    }
-    
-    for item in items:
-        if item["id"] not in bag_item_ids:
-            continue
-
-        if item.get("quality") not in allowed_qualities:
-            continue
-
-        # Compare against equipped
-        upgrade_value = bot.get_upgrade_value(item["id"], autoLoginUser_file, contants_data, verbose=False)
-        if upgrade_value >= 0:
-            continue
-            
-        bot.sell_item_request(item["id"], request_file, body_file, autoLoginUser_file, verbose=False)
-        
-        if verbose:
-            print(f"Sold item {item['id']} {item['identifier']} Total {upgrade_value}")
-        
-        time.sleep(0.2)
-    
-    return COOLDOWN
+def do_sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=1800, log_filepath=None, verbose=False):
+    return bot.sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=verbose)
 
 def do_fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0, log_filepath=None, verbose=False):
     if not bot.is_there_a_worldboss_event_going_on(autoLoginUser_file):
@@ -468,7 +428,7 @@ def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=No
     return (reset_time - now).total_seconds()
 
 # TODO: Confirm this is working
-def do_check_guild_battles(request_file, body_file, autoLoginUser_file, COOLDOWN=14400, log_filepath=None, verbose=False):
+def do_check_guild_battles(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=14400, log_filepath=None, verbose=False):
     # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     finished_attack_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_battle_attack_id", 0)
@@ -476,13 +436,13 @@ def do_check_guild_battles(request_file, body_file, autoLoginUser_file, COOLDOWN
     finished_dungeon_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_dungeon_battle_id", 0)
     
     if finished_attack_id:
-        bot.claim_guild_battle_reward(finished_attack_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_guild_battle_reward, finished_attack_id, request_file, body_file, autoLoginUser_file, constants_file=constants_file, log_filepath=log_filepath, verbose=verbose)
     
     if finished_defense_id:
-        bot.claim_guild_battle_reward(finished_defense_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_guild_battle_reward, finished_defense_id, request_file, body_file, autoLoginUser_file, constants_file=constants_file, log_filepath=log_filepath, verbose=verbose)
     
     if finished_dungeon_id:
-        bot.claim_guild_dungeon_battle_reward(finished_dungeon_id, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        bot.claim_with_inventory_retry(bot.claim_guild_dungeon_battle_reward, finished_dungeon_id, request_file, body_file, autoLoginUser_file, constants_file=constants_file, log_filepath=log_filepath, verbose=verbose)
         
     my_character_id = bot.get_json_value(autoLoginUser_file, "data.character.id", 0)
     

@@ -32,10 +32,10 @@ REWARD_WEIGHTS = {
     ("new_item", None): 1e4,
     
     # Quest type multipliers
-    ("timer", None): 1.0,
-    ("fight_difficulty_1", None): 0.95,  # easy
-    ("fight_difficulty_2", None): 0.9,  # medium
-    ("fight_difficulty_3", None): 0.85,  # hard
+    ("timer", None): 0.1,
+    ("fight_difficulty_1", None): 0.96,    # easy
+    ("fight_difficulty_2", None): 0.9,     # medium
+    ("fight_difficulty_3", None): 0.7,     # hard
 
     # Event-specific rewards
     ("dungeon_key", None): 2e3,
