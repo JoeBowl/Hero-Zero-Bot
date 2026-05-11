@@ -427,9 +427,8 @@ def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=No
     reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
     return (reset_time - now).total_seconds()
 
-# TODO: Confirm this is working
 def do_check_guild_battles(request_file, body_file, autoLoginUser_file, constants_file, COOLDOWN=14400, log_filepath=None, verbose=False):
-    # bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+    bot.sync_game(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     finished_attack_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_battle_attack_id", 0)
     finished_defense_id = bot.get_json_value(autoLoginUser_file, "data.character.finished_guild_battle_defense_id", 0)

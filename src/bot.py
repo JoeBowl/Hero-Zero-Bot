@@ -91,7 +91,7 @@ def print_league_rewards(autoLoginUser_file, verbose=False):
         if winner == me:
             print(f"League fight won against {opponent_name}. Rewards: {rewards}")
         else:
-            print(f"League fight against {opponent_name}. Rewards: {rewards}")
+            print(f"League fight lost against {opponent_name}. Rewards: {rewards}")
     
     return winner == me, rewards
 
@@ -1201,12 +1201,6 @@ def buy_booster(action, booster_id, duration, request_file, body_file, autoLogin
         verbose=verbose
     )
 
-# TODO: Confirm the following requests are working:
-# - get_guild_log
-# - claim_guild_battle_reward
-# - claim_guild_dungeon_battle_rewar
-# - join_guild_battle
-# - join_guild_dungeon_battle 
 def get_guild_log(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     return perform_request(
         action="getGuildLog",
