@@ -478,6 +478,21 @@ def claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file
     )
     return response
 
+def assign_treasure_event(treasure_event_id, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    response = perform_request(
+        "assignTreasureEvent",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "treasure_event_id": str(treasure_event_id)
+        },
+        success_msg="Treasure event assigned successfully",
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+    return response
+
 def collect_hideout_room(request_file, body_file, autoLoginUser_file, cooldown=0.75, log_filepath=None, verbose=False):
     def is_collectible(room, collected_ids, target_ids):
         return (

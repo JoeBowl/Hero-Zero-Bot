@@ -375,15 +375,38 @@ def do_fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0,
 
 def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     treasure_event_id = bot.get_json_value(autoLoginUser_file, "data.character.treasure_event_id")
+    treasure_event = bot.get_json_value(autoLoginUser_file, "data.treasure_event")
     
-    if treasure_event_id == 0:
+    if not treasure_event:
         now = datetime.datetime.now()
         tomorrow = now.date() + datetime.timedelta(days=1)
         reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
         return (reset_time - now).total_seconds()
     
+    if treasure_event_id == 0:
+        start_date = datetime.datetime.strptime(treasure_event["start_date"], "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.datetime.strptime(treasure_event["end_date"], "%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now()
+        
+        # Event is currently active
+        if start_date <= now <= end_date:
+            identifier = treasure_event["identifier"]
+            bot.assign_treasure_event(identifier, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        # Event has not started yet
+        elif now < start_date:
+            seconds_until_start = int((start_date - now).total_seconds())
+            return seconds_until_start
+        
+        # Event already ended
+        else:
+            now = datetime.datetime.now()
+            tomorrow = now.date() + datetime.timedelta(days=1)
+            reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=5)
+            return (reset_time - now).total_seconds()
+        
     current_time = int(datetime.datetime.now().timestamp())
-    ts_reveal_item_collected = bot.get_json_value(autoLoginUser_file, "data.treasure_event.ts_reveal_item_collected")
+    ts_reveal_item_collected = bot.get_json_value(autoLoginUser_file, "data.treasure_event.ts_reveal_item_collected", 0)
     
     if current_time - ts_reveal_item_collected < 3*3600:
         return (ts_reveal_item_collected + 3*3600) - current_time
