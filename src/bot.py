@@ -144,6 +144,7 @@ def get_best_quest(autoLoginUser_file, constants_file, weights, quest_type = "da
         "id": None,
         "energy_cost": 999,
         "rewards": "{\"coins\":0,\"xp\":0}",
+        "fight_difficulty": 0,
         "score": 0
     }
 
