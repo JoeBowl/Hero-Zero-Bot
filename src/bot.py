@@ -911,6 +911,15 @@ def sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_
 
     return COOLDOWN
 
+def time_until_daily_reset(buffer_minutes=None):
+    if buffer_minutes is None:
+        buffer_minutes = config.TIMERS["DAILY_RESET_BUFFER_MINUTES"]
+    
+    now = datetime.datetime.now()
+    tomorrow = now.date() + datetime.timedelta(days=1)
+    reset_time = datetime.datetime.combine(tomorrow, datetime.datetime.min.time()) + datetime.timedelta(minutes=buffer_minutes)
+    return (reset_time - now).total_seconds()
+
 def get_league_opponents(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
     return perform_request(
         "getLeagueOpponents",

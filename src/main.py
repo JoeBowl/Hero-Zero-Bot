@@ -13,20 +13,18 @@ import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
-    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders2.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody2.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
     constants_filepath = f"{BASE_DIR}/src/constants.json"
     config_filepath = f"{BASE_DIR}/src/config.py"
 
-    COOLDOWN = config.COOLDOWN
-    
     task_list  = [
         tasks.Task("Quest", 
             partial(tasks.do_quest,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath, 
-                config.REWARD_WEIGHTS, COOLDOWN=COOLDOWN, log_filepath=log_filepath, verbose=True)) if config.quests else None,
+                config.REWARD_WEIGHTS, log_filepath=log_filepath, verbose=True)) if config.quests else None,
         
         tasks.Task("Training",
             partial(tasks.do_training,
@@ -46,7 +44,7 @@ if __name__ == "__main__":
         tasks.Task("CollectHideoutRooms", 
             partial(tasks.do_collect_hideout_rooms,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, 
-                cooldown=0.2, log_filepath=log_filepath, verbose=True)) if config.collect_hideout_rooms else None,
+                log_filepath=log_filepath, verbose=True)) if config.collect_hideout_rooms else None,
         
         tasks.Task("SellInventory",
             partial(tasks.do_sell_inventory_items,
@@ -57,7 +55,7 @@ if __name__ == "__main__":
         tasks.Task("WorldBoss",
             partial(tasks.do_fight_world_boss,
                 defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                COOLDOWN=0, log_filepath=log_filepath, verbose=True)) if config.world_boss else None,
+                log_filepath=log_filepath, verbose=True)) if config.world_boss else None,
         
         tasks.Task("ClaimTreasureEventFreeRewards",
             partial(tasks.do_claim_free_treasure_revel_items,
@@ -66,13 +64,13 @@ if __name__ == "__main__":
         
         tasks.Task("BuyBoosters",
             partial(tasks.do_buy_boosters,
-                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                    log_filepath=log_filepath, verbose=True)) if config.buy_boosters else None,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
+                log_filepath=log_filepath, verbose=True)) if config.buy_boosters else None,
         
         tasks.Task("GuildBattles",
             partial(tasks.do_check_guild_battles,
-                    defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
-                    COOLDOWN=14400, log_filepath=log_filepath, verbose=True)) if config.guild_battles else None,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
+                log_filepath=log_filepath, verbose=True)) if config.guild_battles else None,
     ]
     task_list = [t for t in task_list if t is not None]
 
@@ -86,9 +84,9 @@ if __name__ == "__main__":
             print("Logging in")
             bot.request_user_info(defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, log_filepath=log_filepath, verbose=False)
             last_run_date = now.date()
-                
+        
         next_task = min(task_list, key=lambda t: t.next_available_time)
-
+        
         if next_task.is_available():
             next_task.run()
         else:
