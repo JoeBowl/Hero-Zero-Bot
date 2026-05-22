@@ -352,7 +352,7 @@ def do_fight_world_boss(request_file, body_file, autoLoginUser_file, COOLDOWN=0,
     
     return config.TIMERS["QUEST_RECHECK"]
 
-def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_file, constants_filepath, log_filepath=None, verbose=False):
     treasure_event_id = bot.get_json_value(autoLoginUser_file, "data.character.treasure_event_id")
     treasure_event = bot.get_json_value(autoLoginUser_file, "data.treasure_event")
     
@@ -380,18 +380,27 @@ def do_claim_free_treasure_revel_items(request_file, body_file, autoLoginUser_fi
         
     current_time = int(datetime.datetime.now().timestamp())
     ts_reveal_item_collected = bot.get_json_value(autoLoginUser_file, "data.treasure_event.ts_reveal_item_collected", 0)
+    treasure_reveal_item_cooldown = bot.get_json_value(constants_filepath, "event_treasure_free_reveal_item_cooldown", 0)
     
-    wait_time = (ts_reveal_item_collected + config.TIMERS["TREASURE_EVENT_COOLDOWN"]) - current_time
-    if wait_time > 0:
-        return wait_time
+    # If the event reveal item is not ready to be collected, wait some more time
+    wait_time = (ts_reveal_item_collected + treasure_reveal_item_cooldown + 5) - current_time
     
-    response = bot.claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
-    if response["error"] == "errClaimFreeTreasureRevealItemsCooldownActive":
-        return config.TIMERS["TREASURE_EVENT_CHECK_RETRY"]
+    if wait_time <= 0:
+        response = bot.claim_free_treasure_reveal_items(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        if response["error"] == "errClaimFreeTreasureRevealItemsCooldownActive":
+            return config.TIMERS["TREASURE_EVENT_CHECK_RETRY"]
+    
+    if config.solve_treasure_event:
+        return bot.solve_treasure_event(request_file, body_file, autoLoginUser_file, constants_filepath, log_filepath=log_filepath, verbose=verbose)
     
     return config.TIMERS["TREASURE_EVENT_COOLDOWN"]
 
 def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=None):
+    active_quest_booster_id = bot.get_json_value(autoLoginUser_file, "data.character.active_quest_booster_id")
+    active_stats_booster_id = bot.get_json_value(autoLoginUser_file, "data.character.active_stats_booster_id")
+    active_work_booster_id = bot.get_json_value(autoLoginUser_file, "data.character.active_work_booster_id")
+    active_league_booster_id = bot.get_json_value(autoLoginUser_file, "data.character.active_league_booster_id")
     ts_active_quest_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_quest_boost_expires")
     ts_active_stats_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_stats_boost_expires")
     ts_active_work_boost_expires = bot.get_json_value(autoLoginUser_file, "data.character.ts_active_work_boost_expires")
@@ -399,22 +408,22 @@ def do_buy_boosters(request_file, body_file, autoLoginUser_file, log_filepath=No
     ts_now = int(datetime.datetime.now().timestamp()) 
     
     # Check quest boost
-    if ts_active_quest_boost_expires is not None:
+    if ts_active_quest_boost_expires is not None and active_quest_booster_id is not None:
         if ts_active_quest_boost_expires <= ts_now + config.TIMERS["BOOSTER_BUFFER"]:
             bot.buy_booster("buyBooster", "booster_quest2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Check stats boost
-    if ts_active_stats_boost_expires is not None:
+    if ts_active_stats_boost_expires is not None and active_stats_booster_id is not None:
         if ts_active_stats_boost_expires <= ts_now + config.TIMERS["BOOSTER_BUFFER"]:
             bot.buy_booster("buyBooster", "booster_stats2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Check work boost
-    if ts_active_work_boost_expires is not None:
+    if ts_active_work_boost_expires is not None and active_work_booster_id is not None:
         if ts_active_work_boost_expires <= ts_now + config.TIMERS["BOOSTER_BUFFER"]:
             bot.buy_booster("buyBooster", "booster_work2", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     
     # Check league boost
-    if ts_active_league_boost_expires is not None:
+    if ts_active_league_boost_expires is not None and active_league_booster_id is not None:
         if ts_active_league_boost_expires <= ts_now + config.TIMERS["BOOSTER_BUFFER"]:
             bot.buy_booster("buyLeagueBooster", "booster_league1", "345600", request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
     

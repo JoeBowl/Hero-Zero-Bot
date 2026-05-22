@@ -8,8 +8,9 @@ league_duels          = True
 collect_hideout_rooms = True
 sell_inventory        = True
 world_boss            = False
-claim_treasure_events = True
-buy_boosters          = True
+claim_treasure_event  = True
+solve_treasure_event  = True
+buy_boosters          = False
 guild_battles         = True
 
 # What to sell if sell_inventory is True

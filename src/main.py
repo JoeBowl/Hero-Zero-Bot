@@ -13,8 +13,8 @@ import datetime
 import time
 
 if __name__ == "__main__":
-    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders2.txt"
-    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody2.txt"
+    defaultHeaders_filepath = f"{BASE_DIR}/src/defaultHeaders.txt"
+    defaultBody_filepath = f"{BASE_DIR}/src/defaultBody.txt"
     autoLoginUser_filepath = f"{BASE_DIR}/src/autoLoginUser.json"
     log_filepath = f"{BASE_DIR}/src/log.txt"
     constants_filepath = f"{BASE_DIR}/src/constants.json"
@@ -59,8 +59,8 @@ if __name__ == "__main__":
         
         tasks.Task("ClaimTreasureEventFreeRewards",
             partial(tasks.do_claim_free_treasure_revel_items,
-                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath,
-                log_filepath=log_filepath, verbose=True)) if config.claim_treasure_events else None,
+                defaultHeaders_filepath, defaultBody_filepath, autoLoginUser_filepath, constants_filepath,
+                log_filepath=log_filepath, verbose=True)) if config.claim_treasure_event else None,
         
         tasks.Task("BuyBoosters",
             partial(tasks.do_buy_boosters,

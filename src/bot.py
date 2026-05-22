@@ -9,6 +9,11 @@ from functools import reduce
 import operator
 import src.config as config
 
+if config.solve_treasure_event:
+    from scipy.optimize import lsq_linear
+    import numpy as np
+    import random
+
 def get_current_energy(autoLoginUser_file):
     with open(autoLoginUser_file, 'r') as file:
         data = json.load(file)
@@ -911,6 +916,232 @@ def sell_inventory_items(request_file, body_file, autoLoginUser_file, constants_
 
     return COOLDOWN
 
+def linear_relaxation_probabilities(player_board, total_prizes, PRIZE_VALUE, UNREVEALED_VALUE):
+    """
+    Calculates a heuristic probability for each unrevealed cell to contain a prize
+    using a linear relaxation approach with lsq_linear.
+    Returns a dictionary of (r, c): probability.
+    """
+    grid_size = len(player_board)
+    prizes_found = sum(1 for r in range(len(player_board)) for c in range(len(player_board)) if player_board[r][c] == PRIZE_VALUE)
+
+    unrevealed_cells = []
+    unrevealed_to_idx = {}
+    idx_to_unrevealed = {}
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if player_board[r][c] == UNREVEALED_VALUE:
+                idx = len(unrevealed_cells)
+                unrevealed_cells.append((r, c))
+                unrevealed_to_idx[(r, c)] = idx
+                idx_to_unrevealed[idx] = (r, c)
+
+    num_unrevealed = len(unrevealed_cells)
+    
+    if num_unrevealed == 0:
+        return np.zeros_like(player_board, dtype=int)
+
+    clue_equations = [] # Stores (list of unrevealed cell indices, needed_prizes)
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if player_board[r][c] >= 0 and player_board[r][c] <= 8: # It's a revealed clue
+                clue_value = player_board[r][c]
+
+                known_prizes_around_clue = 0
+                unrevealed_neighbors_indices = []
+
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0: continue # Skip the cell itself
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < grid_size and 0 <= nc < grid_size: # Check bounds
+                            if player_board[nr][nc] == PRIZE_VALUE:
+                                known_prizes_around_clue += 1
+                            elif player_board[nr][nc] == UNREVEALED_VALUE:
+                                # This neighbor is unrevealed, add its index to the current clue's equation
+                                if (nr, nc) in unrevealed_to_idx:
+                                    unrevealed_neighbors_indices.append(unrevealed_to_idx[(nr, nc)])
+
+                needed_prizes = clue_value - known_prizes_around_clue
+
+                # Only add a constraint if there are unrevealed neighbors involved
+                # and the needed prizes are within a valid range for the unrevealed neighbors
+                if len(unrevealed_neighbors_indices) > 0: # and 0 <= needed_prizes <= len(unrevealed_neighbors_indices):
+                    clue_equations.append((unrevealed_neighbors_indices, needed_prizes))
+
+    # Construct the matrix A and vector b for the linear system Ax = b
+    # Each clue equation forms a row in A and an entry in b
+    # Plus one additional row for the global prize count constraint
+    num_equations = len(clue_equations) + 1
+    A = np.zeros((num_equations, num_unrevealed))
+    b = np.zeros(num_equations)
+
+    # Populate A and b with clue constraints
+    for i, (indices, rhs) in enumerate(clue_equations):
+        for idx in indices:
+            A[i, idx] = 1
+        b[i] = rhs
+
+    # Add the global prize count constraint as the last row
+    # The sum of probabilities of all unrevealed cells must equal the remaining prizes
+    A[num_equations - 1, :] = 1 # All unrevealed cells contribute to the sum
+    b[num_equations - 1] = total_prizes - prizes_found
+
+    # Solve the linear system Ax = b for x (the probabilities)
+    # lsq_linear minimizes ||Ax - b||^2, which is suitable for potentially overdetermined/underdetermined systems
+    # and allows us to enforce bounds (probabilities must be between 0 and 1).
+    res = lsq_linear(A, b, bounds=(0, 1))
+
+    # Map the solution probabilities back to (r, c) coordinates
+    probability_board = np.zeros_like(player_board, dtype=float)
+    for idx, prob_value in enumerate(res.x):
+        r, c = idx_to_unrevealed[idx]
+        probability_board[r][c] = prob_value
+    
+    return probability_board
+
+def suggest_next_move(player_board, total_prizes, PRIZE_VALUE, UNREVEALED_VALUE, randomize_best=True, tolerance=0.005):
+    """
+    Calculates prize probabilities and suggests the cell with the highest probability for the next move.
+    Returns (r, c, probability) of the suggested move.
+    """
+    cell_probabilities = linear_relaxation_probabilities(player_board, total_prizes, PRIZE_VALUE, UNREVEALED_VALUE)
+
+    positive_mask = cell_probabilities > 0
+
+    if not np.any(positive_mask):
+        return None, None, 0.0, np.zeros_like(player_board, dtype=float)
+
+    max_prob = np.max(cell_probabilities)
+
+    if randomize_best:
+        candidate_cells = np.argwhere(np.abs(cell_probabilities - max_prob) <= tolerance)
+        r_chosen, c_chosen = random.choice(candidate_cells.tolist())
+    else:
+        r_chosen, c_chosen = np.unravel_index(np.argmax(cell_probabilities), cell_probabilities.shape)
+
+    return r_chosen, c_chosen, max_prob, cell_probabilities
+
+def display_probabilities_board(probabilities):
+    """
+    Prints the probability board in a readable format.
+    Expects a NumPy array.
+    """
+
+    if probabilities.size == 0:
+        print("No probabilities to display.")
+        return
+
+    rows, cols = probabilities.shape
+    w = 7
+    row_w = max(2, len(str(rows)) + 1)
+
+    print(' '.join([' ' * row_w] + [str(c).center(w) for c in range(cols)]))
+    print(' '.join(['-' * row_w] + ['-' * w for _ in range(cols)]))
+
+    for r in range(rows):
+        row = [f'{str(r).rjust(row_w - 1)}|'] + [
+            ' '.center(w) if probabilities[r, c] <= 0 else f'{probabilities[r, c]:.3f}'.center(w)
+            for c in range(cols)
+        ]
+        print(' '.join(row))
+    print()
+    
+def solve_treasure_event(request_file, body_file, autoLoginUser_file, constants_filepath, log_filepath=None, verbose=False):
+    PRIZE_VALUE = 9 # Represents a prize internally
+    UNREVEALED_VALUE = -1 # Represents an unrevealed cell on player_board
+
+    while True:
+        treasure_event = get_json_value(autoLoginUser_file, "data.treasure_event")
+        current_time = int(datetime.datetime.now().timestamp())
+        
+        # Check if the player has tokens to play
+        if treasure_event["event_reveal_items"] == 0:
+            print("No tokens, waiting for more...")
+            ts_reveal_item_collected = treasure_event["ts_reveal_item_collected"]
+            treasure_reveal_item_cooldown = get_json_value(constants_filepath, "event_treasure_free_reveal_item_cooldown", 0)
+            
+            wait_time = (ts_reveal_item_collected + treasure_reveal_item_cooldown + 5) - current_time
+            if wait_time > 0:
+                return wait_time
+    
+        levels = json.loads(treasure_event["levels"])
+        current_level = list(levels.keys())[-1]
+        trophies_found = levels[current_level]["info"]["found"]
+        trophies_total = levels[current_level]["info"]["needed"]
+        boni_found = levels[current_level]["info"]["boni_found"]
+        boni_total = levels[current_level]["info"]["boni_amount"]
+        print(f"Level {current_level}: {trophies_found + boni_found}/{trophies_total + boni_total} rewards")
+        
+        # Check if there are still rewards to be found in the current level. If not, go to the next level
+        if trophies_found + boni_found == trophies_total + boni_total:
+            create_next_treasure_event_level(request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            
+            next_level_info = get_json_value(constants_filepath, f"event_treasure_locations.standard_balancing.levels.{int(current_level)+1}")
+            next_unlock_duration = next_level_info["unlock_duration"]
+            return next_unlock_duration
+            
+        cells_info = levels[current_level]["cells"]
+        level_info = get_json_value(constants_filepath, f"event_treasure_locations.standard_balancing.levels.{current_level}")
+        grid_size = level_info["grid_size"]
+        
+        # Check if the current level is ready to play, if not, wait
+        if len(cells_info) == 0 and current_level != 0:
+            current_level_ts_unlock = levels[current_level]["info"]["ts_unlock"]
+            
+            wait_time = current_level_ts_unlock - current_time
+            if wait_time > 0:
+                return wait_time
+    
+        player_board = np.array([[UNREVEALED_VALUE]*grid_size]*grid_size)
+    
+        if len(cells_info) > 0:
+            for cell_key, cell_data in cells_info.items():
+                x, y = cell_data["x"], cell_data["y"]
+                cell_type = cell_data["type"]
+                if cell_type == 1 or cell_type == 2:
+                    player_board[y][x] = PRIZE_VALUE
+                else:
+                    player_board[y][x] = cell_data["neighbours"]
+    
+        print(f"player_board:\n{player_board}")
+    
+        suggested_r, suggested_c, suggested_prob, cell_probabilities = suggest_next_move(player_board, trophies_total + boni_total, PRIZE_VALUE, UNREVEALED_VALUE)
+    
+        print("Calculated Prize Probabilities:")
+        display_probabilities_board(cell_probabilities)
+        
+        if suggested_r is not None:
+            print(f"Next suggested move: ({suggested_c}, {suggested_r}) with probability {suggested_prob*100:.1f}%")
+        
+        open_treasure_cell(current_level, suggested_c, suggested_r, False, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+        
+        levels_new = json.loads(get_json_value(autoLoginUser_file, "data.treasure_event.levels"))
+        cells_info_new = levels_new[current_level]["cells"]
+        if len(cells_info_new) > 0:
+            last_cell_key, last_cell_data = list(cells_info_new.items())[-1]
+        
+            if last_cell_data["type"] == 1:
+                if verbose:
+                    print("Hit a trophy!")
+            elif last_cell_data["type"] == 2:
+                if verbose:
+                    print("Hit a reward!")
+                    
+                if last_cell_data["collected"] == False:
+                    x = last_cell_data["x"]
+                    y = last_cell_data["y"]
+                    collect_treasure_cell_reward(current_level, x, y, False, request_file, body_file, autoLoginUser_file, log_filepath=log_filepath, verbose=verbose)
+            else:
+                if verbose:
+                    print(f"Hit an empty cell... neighbours: {last_cell_data['neighbours']}")
+        print()
+        time.sleep(0.5)   
+         
+    return 10800
+
 def time_until_daily_reset(buffer_minutes=None):
     if buffer_minutes is None:
         buffer_minutes = config.TIMERS["DAILY_RESET_BUFFER_MINUTES"]
@@ -1296,6 +1527,57 @@ def join_guild_dungeon_battle(request_file, body_file, autoLoginUser_file, log_f
         success_msg="Guild dungeon battle joined successfully",
         log_filepath=log_filepath,
         verbose=verbose,
+    )
+
+def open_treasure_cell(level, x, y, premium, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        "openTreasureCell",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "level": str(level),
+            "x": str(x),
+            "y": str(y),
+            "premium": str(premium).lower()
+        },
+        success_msg=(
+            f"Treasure cell opened successfully. "
+            f"Level: {level}, X: {x}, Y: {y}, Premium: {premium}"
+        ),
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+
+def collect_treasure_cell_reward(level, x, y, discard_item, request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        "collectTreasureCellReward",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        custom_body={
+            "level": str(level),
+            "x": str(x),
+            "y": str(y),
+            "discard_item": str(discard_item).lower()
+        },
+        success_msg=(
+            f"Treasure reward collected successfully. "
+            f"Level: {level}, X: {x}, Y: {y}, Discard item: {discard_item}"
+        ),
+        log_filepath=log_filepath,
+        verbose=verbose
+    )
+
+def create_next_treasure_event_level(request_file, body_file, autoLoginUser_file, log_filepath=None, verbose=False):
+    return perform_request(
+        "createNextTreasureEventLevel",
+        request_file,
+        body_file,
+        autoLoginUser_file,
+        success_msg="Next treasure event level created successfully.",
+        log_filepath=log_filepath,
+        verbose=verbose
     )
 
 def get_json_value(filepath, path=None, default=None):
